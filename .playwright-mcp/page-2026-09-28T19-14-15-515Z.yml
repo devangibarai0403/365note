@@ -1,0 +1,38 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - heading "365note" [level=1] [ref=f3e9]
+      - paragraph [ref=f3e10]: Personal work & money management system for Devangi, Shrikesh & Admin.
+    - generic [ref=f3e11]:
+      - generic [ref=f3e12]:
+        - heading "Select Your Profile to Sign In" [level=2] [ref=f3e13]
+        - generic [ref=f3e14]: Instant 1-Click Access
+      - generic [ref=f3e15]:
+        - button "Admin Master Dashboard & Full Controls Login as Admin" [ref=f3e16]:
+          - generic [ref=f3e17]:
+            - heading "Admin" [level=3] [ref=f3e21]
+            - paragraph [ref=f3e22]: Master Dashboard & Full Controls
+          - generic [ref=f3e23]: Login as Admin
+        - button "Devangi Classes, School, Kharcha & Family Login as Devangi" [ref=f3e27]:
+          - generic [ref=f3e28]:
+            - heading "Devangi" [level=3] [ref=f3e33]
+            - paragraph [ref=f3e34]: Classes, School, Kharcha & Family
+          - generic [ref=f3e35]: Login as Devangi
+        - button "Shrikesh Office, Kharcha & Family Login as Shrikesh" [ref=f3e39]:
+          - generic [ref=f3e40]:
+            - heading "Shrikesh" [level=3] [ref=f3e46]
+            - paragraph [ref=f3e47]: Office, Kharcha & Family
+          - generic [ref=f3e48]: Login as Shrikesh
+    - generic [ref=f3e52]:
+      - generic [ref=f3e53]: Or Enter Credentials
+      - generic [ref=f3e58]:
+        - generic [ref=f3e59]:
+          - generic [ref=f3e60]:
+            - generic [ref=f3e61]: Username (admin / devangi / shrikesh)
+            - textbox "Username" [ref=f3e66]
+          - generic [ref=f3e67]:
+            - generic [ref=f3e68]: PIN Code
+            - textbox "Enter PIN" [ref=f3e73]
+        - button "Sign In to 365note" [ref=f3e74]
+    - paragraph [ref=f3e77]: Secure, authenticated role-based tracking system • 365note
+  - button "Open Next.js Dev Tools" [ref=f3e83] [cursor=pointer]

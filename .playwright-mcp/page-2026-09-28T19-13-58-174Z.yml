@@ -1,0 +1,39 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - heading "365note" [level=1] [ref=f2e9]
+      - paragraph [ref=f2e10]: Personal work & money management system for Devangi, Shrikesh & Admin.
+    - generic [ref=f2e11]:
+      - generic [ref=f2e12]:
+        - heading "Select Your Profile to Sign In" [level=2] [ref=f2e13]
+        - generic [ref=f2e14]: Instant 1-Click Access
+      - generic [ref=f2e15]:
+        - button "Admin Master Dashboard & Full Controls Login as Admin" [disabled] [ref=f2e16]:
+          - generic [ref=f2e17]:
+            - heading "Admin" [level=3] [ref=f2e21]
+            - paragraph [ref=f2e22]: Master Dashboard & Full Controls
+          - generic [ref=f2e23]: Login as Admin
+        - button "Devangi Classes, School, Kharcha & Family Login as Devangi" [disabled] [ref=f2e27]:
+          - generic [ref=f2e28]:
+            - heading "Devangi" [level=3] [ref=f2e33]
+            - paragraph [ref=f2e34]: Classes, School, Kharcha & Family
+          - generic [ref=f2e35]: Login as Devangi
+        - button "Shrikesh Office, Kharcha & Family Login as Shrikesh" [disabled] [ref=f2e39]:
+          - generic [ref=f2e40]:
+            - heading "Shrikesh" [level=3] [ref=f2e46]
+            - paragraph [ref=f2e47]: Office, Kharcha & Family
+          - generic [ref=f2e48]: Login as Shrikesh
+    - generic [ref=f2e52]:
+      - generic [ref=f2e53]: Or Enter Credentials
+      - generic [ref=f2e58]:
+        - generic [ref=f2e59]:
+          - generic [ref=f2e60]:
+            - generic [ref=f2e61]: Username (admin / devangi / shrikesh)
+            - textbox "Username" [ref=f2e66]
+          - generic [ref=f2e67]:
+            - generic [ref=f2e68]: PIN Code
+            - textbox "Enter PIN" [ref=f2e73]
+        - button "Sign In to 365note" [disabled] [ref=f2e74]
+    - paragraph [ref=f2e77]: Secure, authenticated role-based tracking system • 365note
+  - button "Open Next.js Dev Tools" [ref=f2e83] [cursor=pointer]
+  - alert [ref=f2e91]

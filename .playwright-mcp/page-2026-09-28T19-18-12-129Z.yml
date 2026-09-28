@@ -1,0 +1,4 @@
+- generic [active] [ref=f5e1]:
+  - paragraph [ref=f5e225]: Loading 365note...
+  - button "Open Next.js Dev Tools" [ref=f5e12] [cursor=pointer]
+  - alert [ref=f5e221]
