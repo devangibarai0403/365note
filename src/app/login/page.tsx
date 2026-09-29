@@ -3,7 +3,18 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { Lock, User, KeyRound, ArrowRight, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import {
+  Lock,
+  User,
+  KeyRound,
+  ArrowRight,
+  Loader2,
+  Shield,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Building2,
+} from 'lucide-react';
 
 export default function LoginPage() {
   const { switchUser } = useAuth();
@@ -11,6 +22,7 @@ export default function LoginPage() {
 
   const [username, setUsername] = useState('');
   const [pinCode, setPinCode] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -24,7 +36,7 @@ export default function LoginPage() {
     }
 
     if (!pinCode.trim()) {
-      toast('Please enter your PIN code', 'error');
+      toast('Please enter your security PIN', 'error');
       return;
     }
 
@@ -32,10 +44,10 @@ export default function LoginPage() {
     try {
       const ok = await switchUser(username.trim().toLowerCase(), pinCode.trim());
       if (ok) {
-        toast('Signed in successfully', 'success');
+        toast('Authentication successful', 'success');
         window.location.href = '/';
       } else {
-        setErrorMessage('Invalid username or PIN code. Please verify and try again.');
+        setErrorMessage('Invalid username or PIN code. Please verify credentials.');
         toast('Authentication failed', 'error');
       }
     } catch {
@@ -47,49 +59,59 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Subtle, formal ambient background gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.2),rgba(255,255,255,0))] pointer-events-none" />
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 space-y-6">
-        {/* Brand Logo & Formal Title */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">
-            365<span className="text-indigo-400">note</span>
-          </h1>
-          <p className="text-xs text-slate-400 font-medium">
-            Management & Tracking Portal
-          </p>
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between py-12 px-4 sm:px-6 lg:px-8 relative text-slate-800">
+      {/* Top Security Banner */}
+      <div className="w-full max-w-md mx-auto text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/70 border border-slate-300/80 text-[11px] font-semibold text-slate-700 tracking-wide">
+          <Shield className="w-3.5 h-3.5 text-slate-700" />
+          <span>Restricted Portal • Authorized Personnel Only</span>
         </div>
+      </div>
 
-        {/* Formal Login Card */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/80 py-8 px-6 shadow-2xl rounded-3xl sm:px-10 space-y-6">
-          <div className="border-b border-slate-700/60 pb-4">
-            <h2 className="text-base font-bold text-white tracking-tight">
-              Enter Credentials
+      {/* Main Container */}
+      <div className="sm:mx-auto sm:w-full sm:max-w-md my-auto">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sm:p-10 space-y-6">
+          {/* Official Emblem & System Title */}
+          <div className="text-center space-y-2 pb-2 border-b border-slate-100">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 text-white shadow-xs mx-auto">
+              <Building2 className="w-6 h-6 text-slate-100" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase">
+                365Note Portal
+              </h1>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Academic & Operations Management System
+              </p>
+            </div>
+          </div>
+
+          {/* Form Header */}
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800 tracking-tight">
+              Sign In to Your Account
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Sign in with your assigned username and security PIN
+            <p className="text-xs text-slate-500 mt-0.5">
+              Enter your designated User ID and Security PIN to proceed.
             </p>
           </div>
 
+          {/* Error Message */}
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <form onSubmit={handleFormSubmit} className="space-y-5">
+          {/* Login Form */}
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             <div>
               <label
                 htmlFor="username"
-                className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
+                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
               >
-                Username
+                User ID / Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -101,10 +123,10 @@ export default function LoginPage() {
                   type="text"
                   autoComplete="username"
                   required
-                  placeholder="Enter your username"
+                  placeholder="Enter User ID (e.g. admin)"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium"
+                  className="block w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-colors font-medium"
                 />
               </div>
             </div>
@@ -112,7 +134,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="pin"
-                className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
+                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
               >
                 Security PIN
               </label>
@@ -123,25 +145,40 @@ export default function LoginPage() {
                 <input
                   id="pin"
                   name="pin"
-                  type="password"
+                  type={showPin ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
-                  placeholder="Enter your PIN"
+                  placeholder="••••"
                   value={pinCode}
                   onChange={e => setPinCode(e.target.value)}
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium tracking-widest"
+                  className="block w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-colors font-medium tracking-wider"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                  tabIndex={-1}
+                  aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                >
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+              <span className="text-[11px] text-slate-400 block mt-1">
+                Enter your designated 4-digit PIN code.
+              </span>
             </div>
 
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-indigo-600/30 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all disabled:opacity-50 active:scale-[0.99]"
+                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-colors disabled:opacity-50"
               >
                 {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Authenticating...</span>
+                  </>
                 ) : (
                   <>
                     <span>Sign In</span>
@@ -152,12 +189,20 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="pt-4 border-t border-slate-700/60 text-center">
-            <p className="text-[11px] text-slate-500 font-medium">
-              Authorized Personnel Only • Secure Access
+          {/* Security Compliance Statement */}
+          <div className="pt-4 border-t border-slate-100 text-center space-y-1">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              This system is encrypted and monitored. Unauthorized access attempts are logged and reported.
             </p>
           </div>
         </div>
+      </div>
+
+      {/* System Footer */}
+      <div className="w-full max-w-md mx-auto text-center mt-6">
+        <p className="text-[11px] text-slate-400 font-medium">
+          365Note Operations Platform • System v2.4 • Active
+        </p>
       </div>
     </div>
   );

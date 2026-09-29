@@ -10,6 +10,17 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface ClassSubject {
+  id: string;
+  class_id: string;
+  subject_name: string;
+  hourly_rate: number;
+  description?: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ClassItem {
   id: string;
   name: string;
@@ -18,12 +29,15 @@ export interface ClassItem {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  subjects?: ClassSubject[];
 }
 
 export interface ClassRecord {
   id: string;
   class_id?: string;
   class_name: string;
+  subject_id?: string;
+  subject_name?: string;
   record_date: string;
   from_time: string;
   to_time: string;

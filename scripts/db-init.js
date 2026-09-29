@@ -53,12 +53,29 @@ async function main() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    -- 2b. Class Subjects (Multiple subjects per class with individual hourly rates)
+    CREATE TABLE IF NOT EXISTS public.class_subjects (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      class_id UUID NOT NULL REFERENCES public.classes(id) ON DELETE CASCADE,
+      subject_name VARCHAR(150) NOT NULL,
+      hourly_rate NUMERIC(10, 2) NOT NULL DEFAULT 500.00,
+      description TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT unique_class_subject UNIQUE (class_id, subject_name)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_class_subjects_class_id ON public.class_subjects(class_id);
+
     -- 3. Class Records (Daily class entries by Devangi or Excel imports)
     -- Hourly rate at the time of entry MUST be frozen and stored!
     CREATE TABLE IF NOT EXISTS public.class_records (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
       class_name VARCHAR(150) NOT NULL,
+      subject_id UUID REFERENCES public.class_subjects(id) ON DELETE SET NULL,
+      subject_name VARCHAR(150),
       record_date DATE NOT NULL,
       from_time VARCHAR(20) NOT NULL, -- e.g. "05:00 PM"
       to_time VARCHAR(20) NOT NULL,   -- e.g. "07:00 PM"
@@ -69,9 +86,7 @@ async function main() {
       imported_from_excel BOOLEAN NOT NULL DEFAULT FALSE,
       created_by VARCHAR(50) NOT NULL DEFAULT 'devangi',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      -- Prevent duplicate exact entry if re-uploaded via excel
-      CONSTRAINT unique_class_record_entry UNIQUE (class_name, record_date, from_time, to_time)
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     -- 4. Schools (Managed by Admin for Devangi)

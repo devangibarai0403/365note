@@ -93,16 +93,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No data rows found in Excel sheet' }, { status: 400 });
     }
 
-    // Fetch existing classes for validation
+    // Fetch existing classes and subjects for validation
     const existingClassesRes = await query<{ id: string; name: string; hourly_rate: number }>(
       'SELECT id, name, hourly_rate FROM public.classes'
     );
+    const existingSubjectsRes = await query<{ id: string; class_id: string; subject_name: string; hourly_rate: number }>(
+      'SELECT id, class_id, subject_name, hourly_rate FROM public.class_subjects'
+    );
+
     const classMap = new Map<string, { id: string; name: string; rate: number }>();
     existingClassesRes.rows.forEach(c => {
       classMap.set(c.name.trim().toLowerCase(), {
         id: c.id,
         name: c.name,
         rate: Number(c.hourly_rate),
+      });
+    });
+
+    const subjectsByClassId = new Map<string, Array<{ id: string; name: string; rate: number }>>();
+    existingSubjectsRes.rows.forEach(s => {
+      if (!subjectsByClassId.has(s.class_id)) {
+        subjectsByClassId.set(s.class_id, []);
+      }
+      subjectsByClassId.get(s.class_id)!.push({
+        id: s.id,
+        name: s.subject_name,
+        rate: Number(s.hourly_rate),
       });
     });
 
@@ -117,7 +133,7 @@ export async function POST(req: NextRequest) {
 
       // Find class name column
       const rawClassName =
-        row['Class Name'] || row['Class'] || row['Subject'] || row['Course'] || row['className'] || '';
+        row['Class Name'] || row['Class'] || row['Course'] || row['className'] || '';
       const trimmedClassName = String(rawClassName).trim();
 
       if (!trimmedClassName) {
@@ -132,6 +148,18 @@ export async function POST(req: NextRequest) {
           error: `Class "${trimmedClassName}" does not exist in Admin classes. Please add it first.`,
         });
         continue;
+      }
+
+      // Check for subject column
+      const rawSubjectName = row['Subject'] || row['Subject Name'] || row['subject'] || '';
+      const trimmedSubjectName = String(rawSubjectName).trim();
+      const classSubjects = subjectsByClassId.get(matchedClass.id) || [];
+      let matchedSubject = trimmedSubjectName
+        ? classSubjects.find(s => s.name.toLowerCase() === trimmedSubjectName.toLowerCase())
+        : null;
+
+      if (!matchedSubject && classSubjects.length > 0) {
+        matchedSubject = classSubjects[0];
       }
 
       // Parse Date
@@ -170,22 +198,40 @@ export async function POST(req: NextRequest) {
         hours = 1; // sensible fallback
       }
 
-      // Hourly rate from matched class definition or from excel row if provided
+      // Hourly rate from matched subject or matched class definition or from excel row if provided
       const rawRate = row['Hourly Rate'] || row['Rate'] || row['hourly_rate'];
-      const hourlyRate = rawRate && !isNaN(Number(rawRate)) ? Number(rawRate) : matchedClass.rate;
+      const hourlyRate = rawRate && !isNaN(Number(rawRate))
+        ? Number(rawRate)
+        : matchedSubject
+        ? matchedSubject.rate
+        : matchedClass.rate;
       const totalAmount = Math.round(hours * hourlyRate * 100) / 100;
 
       // Insert record with duplicate avoidance
       try {
-        const insertRes = await query(
+        const dupCheck = await query(
+          `SELECT id FROM public.class_records 
+           WHERE class_name = $1 
+             AND record_date = $2 
+             AND from_time = $3 
+             AND to_time = $4`,
+          [matchedClass.name, recordDate, fromTime, toTime]
+        );
+
+        if (dupCheck.rows.length > 0) {
+          skippedDuplicateCount++;
+          continue;
+        }
+
+        await query(
           `INSERT INTO public.class_records 
-            (class_id, class_name, record_date, from_time, to_time, hours, hourly_rate, total_amount, imported_from_excel, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT (class_name, record_date, from_time, to_time) DO NOTHING
-           RETURNING id;`,
+            (class_id, class_name, subject_id, subject_name, record_date, from_time, to_time, hours, hourly_rate, total_amount, imported_from_excel, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
             matchedClass.id,
             matchedClass.name,
+            matchedSubject ? matchedSubject.id : null,
+            matchedSubject ? matchedSubject.name : null,
             recordDate,
             fromTime,
             toTime,
@@ -197,11 +243,7 @@ export async function POST(req: NextRequest) {
           ]
         );
 
-        if (insertRes.rowCount && insertRes.rowCount > 0) {
-          importedCount++;
-        } else {
-          skippedDuplicateCount++;
-        }
+        importedCount++;
       } catch (err: any) {
         errors.push({
           row: rowNumber,

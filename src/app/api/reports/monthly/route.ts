@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     if (user.role === 'admin' || user.role === 'devangi') {
       const classesRecords = await query(
         `SELECT 
-          id, class_name, TO_CHAR(record_date, 'YYYY-MM-DD') as record_date, 
+          id, class_name, subject_name, TO_CHAR(record_date, 'YYYY-MM-DD') as record_date, 
           from_time, to_time, hours, hourly_rate, total_amount, notes, imported_from_excel
          FROM public.class_records
          WHERE record_date >= $1 AND record_date <= $2

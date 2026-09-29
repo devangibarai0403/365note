@@ -36,6 +36,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   // Class entry state
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [classDate, setClassDate] = useState(new Date().toISOString().split('T')[0]);
   const [fromTime, setFromTime] = useState('05:00 PM');
   const [toTime, setToTime] = useState('07:00 PM');
@@ -66,7 +67,11 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           if (data.classes && data.classes.length > 0) {
             setClassesList(data.classes);
             if (!selectedClassId) {
-              setSelectedClassId(data.classes[0].id);
+              const firstClass = data.classes[0];
+              setSelectedClassId(firstClass.id);
+              if (firstClass.subjects && firstClass.subjects.length > 0) {
+                setSelectedSubjectId(firstClass.subjects[0].id);
+              }
             }
           }
         })
@@ -74,16 +79,34 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     }
   }, [isOpen, canDoClasses, selectedClassId]);
 
+  // When selected class changes, sync subject
+  useEffect(() => {
+    if (selectedClassId && classesList.length > 0) {
+      const cls = classesList.find(c => c.id === selectedClassId);
+      const subjs = cls?.subjects || [];
+      if (subjs.length > 0) {
+        const currentValid = subjs.some(s => s.id === selectedSubjectId);
+        if (!currentValid) {
+          setSelectedSubjectId(subjs[0].id);
+        }
+      } else {
+        setSelectedSubjectId('');
+      }
+    }
+  }, [selectedClassId, classesList, selectedSubjectId]);
+
   // Recalculate class hours & amount
   useEffect(() => {
     if (activeTab === 'classes' && selectedClassId) {
       const cls = classesList.find(c => c.id === selectedClassId);
-      const rate = cls ? Number(cls.hourly_rate) : 500;
+      const subjs = cls?.subjects || [];
+      const matchedSubj = subjs.find(s => s.id === selectedSubjectId) || subjs[0];
+      const rate = matchedSubj ? Number(matchedSubj.hourly_rate) : (cls ? Number(cls.hourly_rate) : 500);
       const hours = calculateDurationHours(fromTime, toTime);
       setCalculatedHours(hours);
       setCalculatedAmount(Math.round(hours * rate * 100) / 100);
     }
-  }, [fromTime, toTime, selectedClassId, classesList, activeTab]);
+  }, [fromTime, toTime, selectedClassId, selectedSubjectId, classesList, activeTab]);
 
   // Set default person based on role
   useEffect(() => {
@@ -145,12 +168,17 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     setLoading(true);
     try {
       const selectedClass = classesList.find(c => c.id === selectedClassId);
+      const subjs = selectedClass?.subjects || [];
+      const matchedSubj = subjs.find(s => s.id === selectedSubjectId) || subjs[0];
+
       const res = await fetch('/api/class-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           class_id: selectedClassId,
           class_name: selectedClass?.name,
+          subject_id: matchedSubj?.id,
+          subject_name: matchedSubj?.subject_name,
           record_date: classDate,
           from_time: fromTime,
           to_time: toTime,
@@ -399,11 +427,36 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 >
                   {classesList.map(c => (
                     <option key={c.id} value={c.id}>
-                      {c.name} (₹{c.hourly_rate}/hr)
+                      {c.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {(() => {
+                const currentClass = classesList.find(c => c.id === selectedClassId);
+                const subjs = currentClass?.subjects || [];
+                if (subjs.length === 0) return null;
+                return (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                      Select Subject *
+                    </label>
+                    <select
+                      value={selectedSubjectId}
+                      onChange={e => setSelectedSubjectId(e.target.value)}
+                      required
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {subjs.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.subject_name} — ₹{s.hourly_rate}/hr
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
