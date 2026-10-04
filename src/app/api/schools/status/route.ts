@@ -101,6 +101,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (status === 'clear' || status === 'none') {
+      await query('DELETE FROM public.school_daily_status WHERE school_id = $1 AND status_date = $2', [school_id, status_date]);
+      return NextResponse.json({ success: true, cleared: true, school_id, status_date });
+    }
+
     if (!['working', 'leave_by_school', 'leave_taken'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
     }
@@ -122,6 +127,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ statusRecord: res.rows[0] });
   } catch (error: any) {
     console.error('Save school status error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (user.role === 'shrikesh') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const schoolId = searchParams.get('school_id');
+  const date = searchParams.get('date');
+
+  if (!date) {
+    return NextResponse.json({ error: 'Date is required' }, { status: 400 });
+  }
+
+  try {
+    if (schoolId) {
+      await query('DELETE FROM public.school_daily_status WHERE school_id = $1 AND status_date = $2', [schoolId, date]);
+    } else {
+      await query('DELETE FROM public.school_daily_status WHERE status_date = $1', [date]);
+    }
+    return NextResponse.json({ success: true, date });
+  } catch (error: any) {
+    console.error('Delete school status error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

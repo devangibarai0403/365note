@@ -138,3 +138,20 @@ export interface AdminCalendarNote {
   created_at: string;
   updated_at: string;
 }
+
+export type TaskStatus = 'todo' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface UserTask {
+  id: string;
+  user_id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  category: string;
+  task_date: string;
+  completed_at?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}

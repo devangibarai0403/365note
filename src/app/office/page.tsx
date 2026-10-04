@@ -101,7 +101,7 @@ export default function OfficePage() {
       });
 
       if (res.ok) {
-        toast(`Office status saved: ${date}`, 'success');
+        toast(status === 'clear' ? `Office status removed: ${date}` : `Office status saved: ${date}`, 'success');
         fetchAttendance();
       } else {
         const err = await res.json();

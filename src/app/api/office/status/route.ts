@@ -91,6 +91,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Status date and status are required' }, { status: 400 });
     }
 
+    if (status === 'clear' || status === 'none') {
+      await query('DELETE FROM public.office_daily_status WHERE status_date = $1', [status_date]);
+      return NextResponse.json({ success: true, cleared: true, status_date });
+    }
+
     if (!['working', 'leave_by_office', 'leave_taken'].includes(status)) {
       return NextResponse.json({ error: 'Invalid office status' }, { status: 400 });
     }
@@ -116,6 +121,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ statusRecord: res.rows[0] });
   } catch (error: any) {
     console.error('Save office status error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (user.role === 'devangi') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const date = searchParams.get('date');
+
+  if (!date) {
+    return NextResponse.json({ error: 'Date is required' }, { status: 400 });
+  }
+
+  try {
+    await query('DELETE FROM public.office_daily_status WHERE status_date = $1', [date]);
+    return NextResponse.json({ success: true, date });
+  } catch (error: any) {
+    console.error('Delete office status error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

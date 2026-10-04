@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   XCircle,
   Calendar as CalendarIcon,
+  Trash2,
 } from 'lucide-react';
 import {
   format,
@@ -357,6 +358,18 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                   Select
                 </span>
               </button>
+
+              {recordsMap.get(format(selectedDate, 'yyyy-MM-dd'))?.status && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleSetStatus('clear')}
+                  className="w-full py-2.5 px-4 rounded-2xl bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center gap-1.5 transition-all mt-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Clear / Remove Status for this Day</span>
+                </button>
+              )}
             </div>
 
             <div>

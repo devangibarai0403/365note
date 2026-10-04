@@ -15,6 +15,7 @@ import {
   CalendarDays,
   FileText,
   Sparkles,
+  CheckSquare,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     if (role === 'devangi') {
       return [
         { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
         { label: 'Classes', href: '/classes', icon: GraduationCap },
         { label: 'School', href: '/school', icon: SchoolIcon },
         { label: 'Daily Kharcha', href: '/kharcha', icon: Wallet },
@@ -43,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     if (role === 'shrikesh') {
       return [
         { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
         { label: 'Office', href: '/office', icon: Building2 },
         { label: 'Daily Kharcha', href: '/kharcha', icon: Wallet },
         { label: 'Family Money', href: '/family-money', icon: Users2 },
@@ -53,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     // Admin has access to all modules
     return [
       { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
       { label: 'Classes', href: '/classes', icon: GraduationCap },
       { label: 'Schools', href: '/school', icon: SchoolIcon },
       { label: 'Office', href: '/office', icon: Building2 },

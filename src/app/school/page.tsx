@@ -121,7 +121,7 @@ export default function SchoolPage() {
       });
 
       if (res.ok) {
-        toast(`Attendance marked: ${date}`, 'success');
+        toast(status === 'clear' ? `School status removed: ${date}` : `Attendance marked: ${date}`, 'success');
         fetchAttendance();
       } else {
         const err = await res.json();
