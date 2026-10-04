@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { ClassItem } from '@/types';
+import { ClassItem, PaymentMode } from '@/types';
 import { calculateDurationHours } from '@/lib/time-utils';
 import { X, Wallet, GraduationCap, Users2, Clock, Check, Loader2 } from 'lucide-react';
 
@@ -46,6 +46,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   // Family Money state
   const [familyType, setFamilyType] = useState<'received' | 'sent'>('received');
+  const [familyPaymentMode, setFamilyPaymentMode] = useState<PaymentMode>('Online');
   const [familyPerson, setFamilyPerson] = useState('');
   const [familyOtherName, setFamilyOtherName] = useState('');
   const [familyAmount, setFamilyAmount] = useState('');
@@ -222,6 +223,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           transaction_type: familyType,
           person_name: finalPerson,
           amount: Number(familyAmount),
+          payment_mode: familyPaymentMode,
           reason: familyReason,
         }),
       });
@@ -610,6 +612,36 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                       className="w-full pl-7 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Payment Mode *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFamilyPaymentMode('Online')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      familyPaymentMode === 'Online'
+                        ? 'bg-sky-50 border-sky-400 text-sky-700 shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    📱 Online Transfer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFamilyPaymentMode('Cash')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      familyPaymentMode === 'Cash'
+                        ? 'bg-amber-50 border-amber-400 text-amber-700 shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    💵 Cash
+                  </button>
                 </div>
               </div>
 

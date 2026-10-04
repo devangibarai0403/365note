@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         transaction_type, 
         person_name, 
         amount, 
+        COALESCE(payment_mode, 'Online') as payment_mode,
         reason, 
         created_at
       FROM public.family_money
@@ -62,11 +63,16 @@ export async function GET(req: NextRequest) {
     let receivedFromPapa = 0;
     let sentToPapa = 0;
     let sentToOtherFamily = 0;
+    let cashReceived = 0;
+    let cashSent = 0;
+    let onlineReceived = 0;
+    let onlineSent = 0;
     const memberBreakdown: Record<string, { received: number; sent: number }> = {};
 
     res.rows.forEach(r => {
       const amt = Number(r.amount || 0);
       const person = r.person_name || 'Unknown';
+      const mode = (r.payment_mode || 'Online').toLowerCase();
 
       if (!memberBreakdown[person]) {
         memberBreakdown[person] = { received: 0, sent: 0 };
@@ -78,6 +84,11 @@ export async function GET(req: NextRequest) {
         if (person.toLowerCase() === 'papa') {
           receivedFromPapa += amt;
         }
+        if (mode === 'cash') {
+          cashReceived += amt;
+        } else {
+          onlineReceived += amt;
+        }
       } else if (r.transaction_type === 'sent') {
         totalSent += amt;
         memberBreakdown[person].sent += amt;
@@ -85,6 +96,11 @@ export async function GET(req: NextRequest) {
           sentToPapa += amt;
         } else {
           sentToOtherFamily += amt;
+        }
+        if (mode === 'cash') {
+          cashSent += amt;
+        } else {
+          onlineSent += amt;
         }
       }
     });
@@ -98,6 +114,10 @@ export async function GET(req: NextRequest) {
         receivedFromPapa: Math.round(receivedFromPapa * 100) / 100,
         sentToPapa: Math.round(sentToPapa * 100) / 100,
         sentToOtherFamily: Math.round(sentToOtherFamily * 100) / 100,
+        cashReceived: Math.round(cashReceived * 100) / 100,
+        cashSent: Math.round(cashSent * 100) / 100,
+        onlineReceived: Math.round(onlineReceived * 100) / 100,
+        onlineSent: Math.round(onlineSent * 100) / 100,
         memberBreakdown,
       },
     });
@@ -119,6 +139,7 @@ export async function POST(req: NextRequest) {
       transaction_type,
       person_name,
       amount,
+      payment_mode,
       reason,
       for_user,
     } = await req.json();
@@ -137,20 +158,22 @@ export async function POST(req: NextRequest) {
 
     const assignedUser = user.role === 'admin' && for_user ? for_user.toLowerCase() : user.username;
     const finalDate = transaction_date || new Date().toISOString().split('T')[0];
+    const finalPaymentMode = payment_mode === 'Cash' ? 'Cash' : 'Online';
 
     const res = await query<FamilyMoneyTransaction>(
       `INSERT INTO public.family_money 
-        (user_id, transaction_date, transaction_type, person_name, amount, reason)
-       VALUES ($1, $2, $3, $4, $5, $6)
+        (user_id, transaction_date, transaction_type, person_name, amount, payment_mode, reason)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING 
          id, user_id, TO_CHAR(transaction_date, 'YYYY-MM-DD') as transaction_date, 
-         transaction_type, person_name, amount, reason, created_at`,
+         transaction_type, person_name, amount, payment_mode, reason, created_at`,
       [
         assignedUser,
         finalDate,
         transaction_type,
         person_name.trim(),
         Number(amount),
+        finalPaymentMode,
         reason || null,
       ]
     );

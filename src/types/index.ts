@@ -125,8 +125,23 @@ export interface FamilyMoneyTransaction {
   transaction_type: TransactionType;
   person_name: string;
   amount: number;
+  payment_mode: PaymentMode;
   reason?: string;
   created_at: string;
+}
+
+export interface UserBalance {
+  user_id: string;
+  initial_cash: number;
+  initial_online: number;
+  available_cash: number;
+  available_online: number;
+  total_available: number;
+  cash_received: number;
+  cash_sent: number;
+  online_received: number;
+  online_sent: number;
+  updated_at?: string;
 }
 
 export interface AdminCalendarNote {
