@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ClassRecord, ClassSubject } from '@/types';
-import { calculateDurationHours, formatTimeDisplay } from '@/lib/time-utils';
+import { calculateDurationHours, formatTimeDisplay, getMonthDateRange } from '@/lib/time-utils';
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -46,9 +46,10 @@ export async function GET(req: NextRequest) {
     if (date) {
       params.push(date);
       sql += ` AND record_date = $${params.length}`;
-    } else if (month) {
-      params.push(`${month}-01`);
-      params.push(`${month}-31`);
+    } else if (month && month !== 'all') {
+      const { startDate, endDate } = getMonthDateRange(month);
+      params.push(startDate);
+      params.push(endDate);
       sql += ` AND record_date >= $${params.length - 1} AND record_date <= $${params.length}`;
     }
 
@@ -180,6 +181,11 @@ export async function POST(req: NextRequest) {
         targetSubjectId = subRes.rows[0].id;
         targetSubjectName = subRes.rows[0].subject_name;
         hourlyRate = Number(subRes.rows[0].hourly_rate);
+      } else {
+        return NextResponse.json(
+          { error: `Class "${targetClassName}" does not have any subjects with hourly rates configured. Please add a subject first.` },
+          { status: 400 }
+        );
       }
     }
 
@@ -264,6 +270,76 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ record: recordResult }, { status: 201 });
   } catch (error: any) {
     console.error('Create class record error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (user.role === 'shrikesh') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  try {
+    const { id, record_date, from_time, to_time, hours, hourly_rate, notes } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
+    }
+
+    const existingRes = await query<ClassRecord>(
+      'SELECT * FROM public.class_records WHERE id = $1',
+      [id]
+    );
+
+    if (existingRes.rows.length === 0) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    const existing = existingRes.rows[0];
+    const finalHours =
+      hours !== undefined && !isNaN(Number(hours)) && Number(hours) > 0
+        ? Number(hours)
+        : Number(existing.hours);
+    const finalRate =
+      hourly_rate !== undefined && !isNaN(Number(hourly_rate)) && Number(hourly_rate) > 0
+        ? Number(hourly_rate)
+        : Number(existing.hourly_rate);
+    const totalAmount = Math.round(finalHours * finalRate * 100) / 100;
+
+    const res = await query<ClassRecord>(
+      `UPDATE public.class_records
+       SET record_date = COALESCE($1, record_date),
+           from_time = COALESCE($2, from_time),
+           to_time = COALESCE($3, to_time),
+           hours = $4,
+           hourly_rate = $5,
+           total_amount = $6,
+           notes = COALESCE($7, notes),
+           updated_at = NOW()
+       WHERE id = $8
+       RETURNING 
+         id, class_id, class_name, subject_id, subject_name, TO_CHAR(record_date, 'YYYY-MM-DD') as record_date, 
+         from_time, to_time, hours, hourly_rate, total_amount, notes, imported_from_excel, created_by, created_at`,
+      [
+        record_date || null,
+        from_time ? formatTimeDisplay(from_time) : null,
+        to_time ? formatTimeDisplay(to_time) : null,
+        finalHours,
+        finalRate,
+        totalAmount,
+        notes !== undefined ? notes : null,
+        id,
+      ]
+    );
+
+    return NextResponse.json({ record: res.rows[0] });
+  } catch (error: any) {
+    console.error('Update class record error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

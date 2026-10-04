@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { FamilyMoneyTransaction } from '@/types';
+import { getMonthDateRange } from '@/lib/time-utils';
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -45,8 +46,9 @@ export async function GET(req: NextRequest) {
       params.push(date);
       sql += ` AND transaction_date = $${params.length}`;
     } else if (month) {
-      params.push(`${month}-01`);
-      params.push(`${month}-31`);
+      const { startDate, endDate } = getMonthDateRange(month);
+      params.push(startDate);
+      params.push(endDate);
       sql += ` AND transaction_date >= $${params.length - 1} AND transaction_date <= $${params.length}`;
     }
 

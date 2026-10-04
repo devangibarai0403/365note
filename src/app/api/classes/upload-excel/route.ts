@@ -93,13 +93,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No data rows found in Excel sheet' }, { status: 400 });
     }
 
-    // Fetch existing classes and subjects for validation
-    const existingClassesRes = await query<{ id: string; name: string; hourly_rate: number }>(
-      'SELECT id, name, hourly_rate FROM public.classes'
-    );
-    const existingSubjectsRes = await query<{ id: string; class_id: string; subject_name: string; hourly_rate: number }>(
-      'SELECT id, class_id, subject_name, hourly_rate FROM public.class_subjects'
-    );
+    // Parallel fetch: classes, subjects, existing records
+    const [existingClassesRes, existingSubjectsRes, existingRecordsRes] = await Promise.all([
+      query<{ id: string; name: string; hourly_rate: number }>('SELECT id, name, hourly_rate FROM public.classes'),
+      query<{ id: string; class_id: string; subject_name: string; hourly_rate: number }>('SELECT id, class_id, subject_name, hourly_rate FROM public.class_subjects'),
+      query<{ class_name: string; record_date: string; from_time: string; to_time: string }>(
+        `SELECT class_name, TO_CHAR(record_date, 'YYYY-MM-DD') as record_date, from_time, to_time FROM public.class_records`
+      ),
+    ]);
 
     const classMap = new Map<string, { id: string; name: string; rate: number }>();
     existingClassesRes.rows.forEach(c => {
@@ -122,9 +123,14 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    let importedCount = 0;
+    const existingRecordKeys = new Set<string>();
+    existingRecordsRes.rows.forEach(r => {
+      existingRecordKeys.add(`${r.class_name.trim().toLowerCase()}|${r.record_date}|${r.from_time}|${r.to_time}`);
+    });
+
     let skippedDuplicateCount = 0;
     const errors: { row: number; error: string; data?: any }[] = [];
+    const recordsToInsert: any[] = [];
 
     // Process each row
     for (let i = 0; i < rawRows.length; i++) {
@@ -207,48 +213,72 @@ export async function POST(req: NextRequest) {
         : matchedClass.rate;
       const totalAmount = Math.round(hours * hourlyRate * 100) / 100;
 
-      // Insert record with duplicate avoidance
+      // Duplicate check
+      const recordKey = `${matchedClass.name.toLowerCase()}|${recordDate}|${fromTime}|${toTime}`;
+      if (existingRecordKeys.has(recordKey)) {
+        skippedDuplicateCount++;
+        continue;
+      }
+
+      existingRecordKeys.add(recordKey);
+
+      recordsToInsert.push({
+        class_id: matchedClass.id,
+        class_name: matchedClass.name,
+        subject_id: matchedSubject ? matchedSubject.id : null,
+        subject_name: matchedSubject ? matchedSubject.name : null,
+        record_date: recordDate,
+        from_time: fromTime,
+        to_time: toTime,
+        hours,
+        hourly_rate: hourlyRate,
+        total_amount: totalAmount,
+      });
+    }
+
+    // High performance batch insert in chunks of 50
+    let importedCount = 0;
+    const batchSize = 50;
+
+    for (let b = 0; b < recordsToInsert.length; b += batchSize) {
+      const batch = recordsToInsert.slice(b, b + batchSize);
+      const valueStrings: string[] = [];
+      const params: any[] = [];
+      let pIdx = 1;
+
+      for (const r of batch) {
+        valueStrings.push(
+          `($${pIdx}, $${pIdx + 1}, $${pIdx + 2}, $${pIdx + 3}, $${pIdx + 4}, $${pIdx + 5}, $${pIdx + 6}, $${pIdx + 7}, $${pIdx + 8}, $${pIdx + 9}, $${pIdx + 10}, $${pIdx + 11})`
+        );
+        params.push(
+          r.class_id,
+          r.class_name,
+          r.subject_id,
+          r.subject_name,
+          r.record_date,
+          r.from_time,
+          r.to_time,
+          r.hours,
+          r.hourly_rate,
+          r.total_amount,
+          true,
+          'excel_import'
+        );
+        pIdx += 12;
+      }
+
+      const insertSql = `
+        INSERT INTO public.class_records 
+          (class_id, class_name, subject_id, subject_name, record_date, from_time, to_time, hours, hourly_rate, total_amount, imported_from_excel, created_by)
+        VALUES ${valueStrings.join(', ')}
+      `;
+
       try {
-        const dupCheck = await query(
-          `SELECT id FROM public.class_records 
-           WHERE class_name = $1 
-             AND record_date = $2 
-             AND from_time = $3 
-             AND to_time = $4`,
-          [matchedClass.name, recordDate, fromTime, toTime]
-        );
-
-        if (dupCheck.rows.length > 0) {
-          skippedDuplicateCount++;
-          continue;
-        }
-
-        await query(
-          `INSERT INTO public.class_records 
-            (class_id, class_name, subject_id, subject_name, record_date, from_time, to_time, hours, hourly_rate, total_amount, imported_from_excel, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [
-            matchedClass.id,
-            matchedClass.name,
-            matchedSubject ? matchedSubject.id : null,
-            matchedSubject ? matchedSubject.name : null,
-            recordDate,
-            fromTime,
-            toTime,
-            hours,
-            hourlyRate,
-            totalAmount,
-            true,
-            'excel_import',
-          ]
-        );
-
-        importedCount++;
+        await query(insertSql, params);
+        importedCount += batch.length;
       } catch (err: any) {
-        errors.push({
-          row: rowNumber,
-          error: `Database insertion error: ${err.message}`,
-        });
+        console.error('Batch insert error:', err);
+        errors.push({ row: b + 2, error: `Batch insertion error: ${err.message}` });
       }
     }
 
@@ -259,7 +289,7 @@ export async function POST(req: NextRequest) {
       importedCount,
       skippedDuplicateCount,
       errorsCount: errors.length,
-      errors: errors.slice(0, 50), // return up to 50 detailed errors
+      errors: errors.slice(0, 50),
     });
   } catch (error: any) {
     console.error('Excel upload error:', error);

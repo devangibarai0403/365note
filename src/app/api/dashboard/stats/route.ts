@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { getMonthDateRange } from '@/lib/time-utils';
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -14,8 +15,7 @@ export async function GET(req: NextRequest) {
   const todayStr = now.toISOString().split('T')[0];
 
   const month = searchParams.get('month') || currentMonthStr;
-  const monthStart = `${month}-01`;
-  const monthEnd = `${month}-31`;
+  const { startDate: monthStart, endDate: monthEnd } = getMonthDateRange(month);
 
   try {
     // 1. Classes Stats (for Devangi & Admin)
@@ -39,26 +39,39 @@ export async function GET(req: NextRequest) {
         [todayStr]
       );
 
-      const monthClassesRes = await query<{ count: string; hours: string; total: string }>(
-        `SELECT COUNT(*) as count, COALESCE(SUM(hours), 0) as hours, COALESCE(SUM(total_amount), 0) as total 
-         FROM public.class_records 
-         WHERE record_date >= $1 AND record_date <= $2`,
-        [monthStart, monthEnd]
-      );
+      const isAll = month === 'all';
+      const monthClassesRes = isAll
+        ? await query<{ count: string; hours: string; total: string }>(
+            `SELECT COUNT(*) as count, COALESCE(SUM(hours), 0) as hours, COALESCE(SUM(total_amount), 0) as total 
+             FROM public.class_records`
+          )
+        : await query<{ count: string; hours: string; total: string }>(
+            `SELECT COUNT(*) as count, COALESCE(SUM(hours), 0) as hours, COALESCE(SUM(total_amount), 0) as total 
+             FROM public.class_records 
+             WHERE record_date >= $1 AND record_date <= $2`,
+            [monthStart, monthEnd]
+          );
 
       const allTimeRes = await query<{ hours: string; total: string }>(
         `SELECT COALESCE(SUM(hours), 0) as hours, COALESCE(SUM(total_amount), 0) as total 
          FROM public.class_records`
       );
 
-      const classWiseRes = await query<{ class_name: string; total_hours: string; total_amount: string }>(
-        `SELECT class_name, SUM(hours) as total_hours, SUM(total_amount) as total_amount 
-         FROM public.class_records 
-         WHERE record_date >= $1 AND record_date <= $2 
-         GROUP BY class_name 
-         ORDER BY total_amount DESC`,
-        [monthStart, monthEnd]
-      );
+      const classWiseRes = isAll
+        ? await query<{ class_name: string; total_hours: string; total_amount: string }>(
+            `SELECT class_name, SUM(hours) as total_hours, SUM(total_amount) as total_amount 
+             FROM public.class_records 
+             GROUP BY class_name 
+             ORDER BY total_amount DESC`
+          )
+        : await query<{ class_name: string; total_hours: string; total_amount: string }>(
+            `SELECT class_name, SUM(hours) as total_hours, SUM(total_amount) as total_amount 
+             FROM public.class_records 
+             WHERE record_date >= $1 AND record_date <= $2 
+             GROUP BY class_name 
+             ORDER BY total_amount DESC`,
+            [monthStart, monthEnd]
+          );
 
       classesStats = {
         todayClasses: parseInt(todayClassesRes.rows[0]?.count || '0'),

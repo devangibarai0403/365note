@@ -62,3 +62,17 @@ export function formatTimeDisplay(timeStr: string): string {
 
   return `${displayH}:${displayM} ${meridiem}`;
 }
+
+export function getMonthDateRange(monthStr: string): { startDate: string; endDate: string } {
+  if (!monthStr || !monthStr.includes('-')) {
+    const now = new Date();
+    monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const [yearStr, monthNumStr] = monthStr.split('-');
+  const year = parseInt(yearStr, 10);
+  const m = parseInt(monthNumStr, 10);
+  const lastDay = new Date(year, m, 0).getDate();
+  const startDate = `${yearStr}-${monthNumStr.padStart(2, '0')}-01`;
+  const endDate = `${yearStr}-${monthNumStr.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  return { startDate, endDate };
+}

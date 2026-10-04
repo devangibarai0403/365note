@@ -101,7 +101,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       const cls = classesList.find(c => c.id === selectedClassId);
       const subjs = cls?.subjects || [];
       const matchedSubj = subjs.find(s => s.id === selectedSubjectId) || subjs[0];
-      const rate = matchedSubj ? Number(matchedSubj.hourly_rate) : (cls ? Number(cls.hourly_rate) : 500);
+      const rate = matchedSubj ? Number(matchedSubj.hourly_rate) : 0;
       const hours = calculateDurationHours(fromTime, toTime);
       setCalculatedHours(hours);
       setCalculatedAmount(Math.round(hours * rate * 100) / 100);

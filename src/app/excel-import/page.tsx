@@ -307,7 +307,7 @@ export default function ExcelImportPage() {
                   key={c.id}
                   className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-[11px]"
                 >
-                  {c.name} (₹{c.hourly_rate}/hr)
+                  {c.name}
                 </span>
               ))}
             </div>

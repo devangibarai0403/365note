@@ -124,11 +124,16 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const { id, name, hourly_rate, description, is_active } = await req.json();
+    const { id, name, hourly_rate, description, is_active, update_subjects_rate } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Class ID is required' }, { status: 400 });
     }
+
+    const rateNum =
+      hourly_rate !== undefined && hourly_rate !== null && !isNaN(Number(hourly_rate))
+        ? Number(hourly_rate)
+        : null;
 
     const res = await query<ClassItem>(
       `UPDATE public.classes 
@@ -141,7 +146,7 @@ export async function PUT(req: NextRequest) {
        RETURNING *`,
       [
         name ? name.trim() : null,
-        hourly_rate !== undefined ? Number(hourly_rate) : null,
+        rateNum,
         description !== undefined ? description?.trim() : null,
         is_active !== undefined ? is_active : null,
         id,
@@ -150,6 +155,16 @@ export async function PUT(req: NextRequest) {
 
     if (res.rows.length === 0) {
       return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    // If admin opted to also sync all subjects under this class
+    if (update_subjects_rate && rateNum !== null && rateNum > 0) {
+      await query(
+        `UPDATE public.class_subjects 
+         SET hourly_rate = $1, updated_at = NOW() 
+         WHERE class_id = $2`,
+        [rateNum, id]
+      );
     }
 
     return NextResponse.json({ class: res.rows[0] });

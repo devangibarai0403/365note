@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { getMonthDateRange } from '@/lib/time-utils';
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -12,8 +13,7 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const month = searchParams.get('month') || currentMonth;
-  const monthStart = `${month}-01`;
-  const monthEnd = `${month}-31`;
+  const { startDate: monthStart, endDate: monthEnd } = getMonthDateRange(month);
 
   try {
     const reportData: any = {
