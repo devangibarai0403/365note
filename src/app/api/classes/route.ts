@@ -52,8 +52,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin only' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -119,8 +119,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin only' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -135,29 +135,36 @@ export async function PUT(req: NextRequest) {
         ? Number(hourly_rate)
         : null;
 
-    const res = await query<ClassItem>(
-      `UPDATE public.classes 
-       SET name = COALESCE($1, name),
-           hourly_rate = COALESCE($2, hourly_rate),
-           description = COALESCE($3, description),
-           is_active = COALESCE($4, is_active),
-           updated_at = NOW()
-       WHERE id = $5
-       RETURNING *`,
-      [
-        name ? name.trim() : null,
-        rateNum,
-        description !== undefined ? description?.trim() : null,
-        is_active !== undefined ? is_active : null,
-        id,
-      ]
-    );
+    let sql = 'UPDATE public.classes SET updated_at = NOW()';
+    const params: any[] = [];
+
+    if (name !== undefined && name !== null) {
+      params.push(name.trim());
+      sql += `, name = $${params.length}`;
+    }
+    if (rateNum !== null) {
+      params.push(rateNum);
+      sql += `, hourly_rate = $${params.length}`;
+    }
+    if (description !== undefined) {
+      params.push(description?.trim() || null);
+      sql += `, description = $${params.length}`;
+    }
+    if (is_active !== undefined && is_active !== null) {
+      params.push(Boolean(is_active));
+      sql += `, is_active = $${params.length}`;
+    }
+
+    params.push(id);
+    sql += ` WHERE id = $${params.length} RETURNING *`;
+
+    const res = await query<ClassItem>(sql, params);
 
     if (res.rows.length === 0) {
       return NextResponse.json({ error: 'Class not found' }, { status: 404 });
     }
 
-    // If admin opted to also sync all subjects under this class
+    // If admin/devangi opted to also sync all subjects under this class
     if (update_subjects_rate && rateNum !== null && rateNum > 0) {
       await query(
         `UPDATE public.class_subjects 

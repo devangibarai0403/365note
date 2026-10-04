@@ -67,8 +67,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         .then(data => {
           if (data.classes && data.classes.length > 0) {
             setClassesList(data.classes);
-            if (!selectedClassId) {
-              const firstClass = data.classes[0];
+            const activeClasses = data.classes.filter((c: ClassItem) => c.is_active !== false);
+            if (!selectedClassId && activeClasses.length > 0) {
+              const firstClass = activeClasses[0];
               setSelectedClassId(firstClass.id);
               if (firstClass.subjects && firstClass.subjects.length > 0) {
                 setSelectedSubjectId(firstClass.subjects[0].id);
@@ -427,11 +428,13 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   required
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {classesList.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+                  {classesList
+                    .filter(c => c.is_active !== false)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 

@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 2. Cumulative family money transactions for targetUser
+    // 2. Cumulative family money flows (in/out) for targetUser
     const flowRes = await query<{
       cash_received: string | number;
       cash_sent: string | number;
@@ -66,8 +66,25 @@ export async function GET(req: NextRequest) {
     const onlineReceived = Number(flowRes.rows[0]?.online_received || 0);
     const onlineSent = Number(flowRes.rows[0]?.online_sent || 0);
 
-    const availableCash = Math.round((initialCash + cashReceived - cashSent) * 100) / 100;
-    const availableOnline = Math.round((initialOnline + onlineReceived - onlineSent) * 100) / 100;
+    // 3. Cumulative daily kharcha expenses (cash/online) for targetUser
+    const kharchaRes = await query<{
+      kharcha_cash: string | number;
+      kharcha_online: string | number;
+    }>(
+      `SELECT
+        COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'cash')) = 'cash' THEN amount ELSE 0 END), 0) AS kharcha_cash,
+        COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'cash')) = 'online' THEN amount ELSE 0 END), 0) AS kharcha_online
+       FROM public.daily_kharcha
+       WHERE LOWER(user_id) = $1`,
+      [targetUser]
+    );
+
+    const kharchaCash = Number(kharchaRes.rows[0]?.kharcha_cash || 0);
+    const kharchaOnline = Number(kharchaRes.rows[0]?.kharcha_online || 0);
+
+    // Live Available Balances: initial + received - sent - kharcha
+    const availableCash = Math.round((initialCash + cashReceived - cashSent - kharchaCash) * 100) / 100;
+    const availableOnline = Math.round((initialOnline + onlineReceived - onlineSent - kharchaOnline) * 100) / 100;
     const totalAvailable = Math.round((availableCash + availableOnline) * 100) / 100;
 
     return NextResponse.json({
@@ -79,6 +96,8 @@ export async function GET(req: NextRequest) {
         cash_sent: cashSent,
         online_received: onlineReceived,
         online_sent: onlineSent,
+        kharcha_cash: kharchaCash,
+        kharcha_online: kharchaOnline,
         available_cash: availableCash,
         available_online: availableOnline,
         total_available: totalAvailable,
@@ -109,7 +128,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Please provide cash or online amount' }, { status: 400 });
     }
 
-    // Get current flows to determine the initial_cash and initial_online offset
+    // Get current family money flows
     const flowRes = await query<{
       cash_received: string | number;
       cash_sent: string | number;
@@ -131,10 +150,26 @@ export async function POST(req: NextRequest) {
     const onlineReceived = Number(flowRes.rows[0]?.online_received || 0);
     const onlineSent = Number(flowRes.rows[0]?.online_sent || 0);
 
-    // Calculate required initial balances so that available = desired
-    // available = initial + received - sent => initial = available - received + sent
-    const newInitialCash = desiredCash !== null ? desiredCash - cashReceived + cashSent : null;
-    const newInitialOnline = desiredOnline !== null ? desiredOnline - onlineReceived + onlineSent : null;
+    // Get current daily kharcha expenses
+    const kharchaRes = await query<{
+      kharcha_cash: string | number;
+      kharcha_online: string | number;
+    }>(
+      `SELECT
+        COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'cash')) = 'cash' THEN amount ELSE 0 END), 0) AS kharcha_cash,
+        COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'cash')) = 'online' THEN amount ELSE 0 END), 0) AS kharcha_online
+       FROM public.daily_kharcha
+       WHERE LOWER(user_id) = $1`,
+      [targetUser]
+    );
+
+    const kharchaCash = Number(kharchaRes.rows[0]?.kharcha_cash || 0);
+    const kharchaOnline = Number(kharchaRes.rows[0]?.kharcha_online || 0);
+
+    // available = initial + received - sent - kharcha
+    // => initial = available - received + sent + kharcha
+    const newInitialCash = desiredCash !== null ? desiredCash - cashReceived + cashSent + kharchaCash : null;
+    const newInitialOnline = desiredOnline !== null ? desiredOnline - onlineReceived + onlineSent + kharchaOnline : null;
 
     // Check existing
     const existing = await query(
@@ -155,8 +190,8 @@ export async function POST(req: NextRequest) {
       [targetUser, finalInitialCash, finalInitialOnline]
     );
 
-    const updatedCash = Math.round((finalInitialCash + cashReceived - cashSent) * 100) / 100;
-    const updatedOnline = Math.round((finalInitialOnline + onlineReceived - onlineSent) * 100) / 100;
+    const updatedCash = Math.round((finalInitialCash + cashReceived - cashSent - kharchaCash) * 100) / 100;
+    const updatedOnline = Math.round((finalInitialOnline + onlineReceived - onlineSent - kharchaOnline) * 100) / 100;
 
     return NextResponse.json({
       success: true,
@@ -171,6 +206,8 @@ export async function POST(req: NextRequest) {
         cash_sent: cashSent,
         online_received: onlineReceived,
         online_sent: onlineSent,
+        kharcha_cash: kharchaCash,
+        kharcha_online: kharchaOnline,
       },
     });
   } catch (error: any) {

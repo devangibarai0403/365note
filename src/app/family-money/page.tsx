@@ -384,14 +384,22 @@ export default function FamilyMoneyPage() {
                 `₹${Number(balance?.available_cash || 0).toLocaleString('en-IN')}`
               )}
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-amber-200/80 mt-2 pt-2 border-t border-white/10">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-amber-200/80 mt-2 pt-2 border-t border-white/10">
               <span className="flex items-center gap-1 text-emerald-400">
                 +₹{Number(balance?.cash_received || 0).toLocaleString('en-IN')} in
               </span>
               <span>•</span>
               <span className="flex items-center gap-1 text-rose-400">
-                -₹{Number(balance?.cash_sent || 0).toLocaleString('en-IN')} out
+                -₹{Number(balance?.cash_sent || 0).toLocaleString('en-IN')} sent
               </span>
+              {Number(balance?.kharcha_cash || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-amber-300">
+                    -₹{Number(balance?.kharcha_cash || 0).toLocaleString('en-IN')} spent
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
@@ -413,14 +421,22 @@ export default function FamilyMoneyPage() {
                 `₹${Number(balance?.available_online || 0).toLocaleString('en-IN')}`
               )}
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-sky-200/80 mt-2 pt-2 border-t border-white/10">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-sky-200/80 mt-2 pt-2 border-t border-white/10">
               <span className="flex items-center gap-1 text-emerald-400">
                 +₹{Number(balance?.online_received || 0).toLocaleString('en-IN')} in
               </span>
               <span>•</span>
               <span className="flex items-center gap-1 text-rose-400">
-                -₹{Number(balance?.online_sent || 0).toLocaleString('en-IN')} out
+                -₹{Number(balance?.online_sent || 0).toLocaleString('en-IN')} sent
               </span>
+              {Number(balance?.kharcha_online || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-sky-300">
+                    -₹{Number(balance?.kharcha_online || 0).toLocaleString('en-IN')} spent
+                  </span>
+                </>
+              )}
             </div>
           </div>
 

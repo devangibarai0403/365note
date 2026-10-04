@@ -5,8 +5,8 @@ import { ClassSubject } from '@/types';
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin only' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin only' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -101,8 +101,8 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin only' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);

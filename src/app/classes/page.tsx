@@ -23,6 +23,8 @@ import {
   Layers,
   X,
   Download,
+  Power,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -99,11 +101,12 @@ export default function ClassesPage() {
         const loadedClasses: ClassItem[] = data.classes || [];
         setClassesList(loadedClasses);
 
-        if (loadedClasses.length > 0) {
+        const activeClasses = loadedClasses.filter(c => c.is_active !== false);
+        if (activeClasses.length > 0) {
           setSelectedClassId(prevId => {
-            const exists = loadedClasses.some(c => c.id === prevId);
-            const activeId = exists ? prevId : loadedClasses[0].id;
-            const targetClass = loadedClasses.find(c => c.id === activeId);
+            const exists = activeClasses.some(c => c.id === prevId);
+            const activeId = exists ? prevId : activeClasses[0].id;
+            const targetClass = activeClasses.find(c => c.id === activeId);
 
             // Sync subject
             if (targetClass?.subjects && targetClass.subjects.length > 0) {
@@ -464,6 +467,47 @@ export default function ClassesPage() {
     }
   };
 
+  // Toggle Class Active / Deactivated Status
+  const handleToggleClassActive = async (classItem: ClassItem) => {
+    const nextState = classItem.is_active === false ? true : false;
+    const actionText = nextState ? 'reactivate' : 'deactivate';
+    if (
+      !confirm(
+        `Are you sure you want to ${actionText} "${classItem.name}"? ${
+          nextState
+            ? 'It will now appear in your daily class recording dropdown.'
+            : 'It will no longer appear in your daily class recording dropdown, but all past records, history, and earnings remain intact.'
+        }`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/classes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: classItem.id,
+          is_active: nextState,
+        }),
+      });
+
+      if (res.ok) {
+        toast(
+          `Class "${classItem.name}" ${nextState ? 'reactivated' : 'deactivated'} successfully!`,
+          'success'
+        );
+        fetchClasses();
+      } else {
+        const err = await res.json();
+        toast(err.error || `Failed to ${actionText} class`, 'error');
+      }
+    } catch {
+      toast(`Failed to ${actionText} class`, 'error');
+    }
+  };
+
   // Open Subject Modal to Add new subject to a specific class
   const handleOpenAddSubjectModal = (targetClass: ClassItem) => {
     setSubjectModalClass(targetClass);
@@ -630,7 +674,7 @@ export default function ClassesPage() {
             <span>Export All Records</span>
           </button>
 
-          {role === 'admin' && (
+          {(role === 'admin' || role === 'devangi') && (
             <>
               <button
                 onClick={() => {
@@ -742,11 +786,13 @@ export default function ClassesPage() {
                   required
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {classesList.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.subjects && c.subjects.length > 0 ? `(${c.subjects.length} subjects)` : ''}
-                    </option>
-                  ))}
+                  {classesList
+                    .filter(c => c.is_active !== false)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.subjects && c.subjects.length > 0 ? `(${c.subjects.length} subjects)` : ''}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -884,8 +930,8 @@ export default function ClassesPage() {
             </form>
           </div>
 
-          {/* Admin Classes & Multi-Subject Rate Configurations */}
-          {role === 'admin' && (
+          {/* Classes & Multi-Subject Rate Configurations */}
+          {(role === 'admin' || role === 'devangi') && (
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
@@ -910,14 +956,53 @@ export default function ClassesPage() {
                       className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5"
                     >
                       {/* Class Header */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span className="font-black text-sm text-slate-900 block">{c.name}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-black text-sm text-slate-900">{c.name}</span>
+                            {c.is_active === false ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300">
+                                Deactivated
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Active
+                              </span>
+                            )}
+                          </div>
                           {c.description && (
                             <span className="text-[11px] text-slate-400 block">{c.description}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          {/* Deactivate / Reactivate button */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleClassActive(c)}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all border ${
+                              c.is_active === false
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200'
+                            }`}
+                            title={
+                              c.is_active === false
+                                ? 'Reactivate class to appear in daily dropdowns'
+                                : 'Deactivate class (stops teaching there - hidden from daily dropdowns)'
+                            }
+                          >
+                            {c.is_active === false ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>Reactivate</span>
+                              </>
+                            ) : (
+                              <>
+                                <Power className="w-3 h-3 text-amber-600" />
+                                <span>Deactivate</span>
+                              </>
+                            )}
+                          </button>
+
                           <button
                             onClick={() => handleOpenEditClassModal(c)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
@@ -925,13 +1010,15 @@ export default function ClassesPage() {
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteClass(c)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Delete Class"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {role === 'admin' && (
+                            <button
+                              onClick={() => handleDeleteClass(c)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Delete Class"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1027,7 +1114,7 @@ export default function ClassesPage() {
                 <option value="">All Classes</option>
                 {classesList.map(c => (
                   <option key={c.id} value={c.name}>
-                    {c.name}
+                    {c.name}{c.is_active === false ? ' (Deactivated)' : ''}
                   </option>
                 ))}
               </select>

@@ -141,6 +141,8 @@ export interface UserBalance {
   cash_sent: number;
   online_received: number;
   online_sent: number;
+  kharcha_cash?: number;
+  kharcha_online?: number;
   updated_at?: string;
 }
 
