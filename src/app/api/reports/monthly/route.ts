@@ -53,16 +53,46 @@ export async function GET(req: NextRequest) {
         classSummaryMap[r.class_name].amount += a;
       });
 
+      // Fetch class payments for this month
+      const classPaymentsRes = await query<{ class_name: string; amount: string | number; payment_mode: string }>(
+        `SELECT class_name, amount, payment_mode
+         FROM public.class_payments
+         WHERE month = $1`,
+        [month]
+      );
+      const paidMap: Record<string, { total: number; cash: number; online: number }> = {};
+      let totalPaidAll = 0;
+      classPaymentsRes.rows.forEach(p => {
+        if (!paidMap[p.class_name]) paidMap[p.class_name] = { total: 0, cash: 0, online: 0 };
+        const amt = Number(p.amount || 0);
+        paidMap[p.class_name].total += amt;
+        totalPaidAll += amt;
+        if (p.payment_mode?.toLowerCase() === 'cash') paidMap[p.class_name].cash += amt;
+        else paidMap[p.class_name].online += amt;
+      });
+
       reportData.classes = {
         totalClasses,
         totalHours: Math.round(totalHours * 100) / 100,
         totalEarnings: Math.round(totalEarnings * 100) / 100,
-        byClass: Object.entries(classSummaryMap).map(([name, data]) => ({
-          name,
-          count: data.count,
-          hours: Math.round(data.hours * 100) / 100,
-          earnings: Math.round(data.amount * 100) / 100,
-        })),
+        totalPaid: Math.round(totalPaidAll * 100) / 100,
+        totalBalance: Math.max(0, Math.round((totalEarnings - totalPaidAll) * 100) / 100),
+        byClass: Object.entries(classSummaryMap).map(([name, data]) => {
+          const paidInfo = paidMap[name] || { total: 0, cash: 0, online: 0 };
+          const balance = Math.max(0, Math.round((data.amount - paidInfo.total) * 100) / 100);
+          const status = data.amount > 0 && paidInfo.total >= data.amount ? 'full_paid' : 'pending';
+          return {
+            name,
+            count: data.count,
+            hours: Math.round(data.hours * 100) / 100,
+            earnings: Math.round(data.amount * 100) / 100,
+            paid: Math.round(paidInfo.total * 100) / 100,
+            cashPaid: Math.round(paidInfo.cash * 100) / 100,
+            onlinePaid: Math.round(paidInfo.online * 100) / 100,
+            balanceDue: balance,
+            status,
+          };
+        }),
         records: classesRecords.rows,
       };
     }

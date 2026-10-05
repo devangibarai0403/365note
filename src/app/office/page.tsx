@@ -29,6 +29,9 @@ export default function OfficePage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [location, setLocation] = useState('');
+  const [monthlySalary, setMonthlySalary] = useState('');
+  const [paidLeavesDays, setPaidLeavesDays] = useState('0');
+  const [perLeaveCut, setPerLeaveCut] = useState('');
   const [notes, setNotes] = useState('');
   const [savingOffice, setSavingOffice] = useState(false);
 
@@ -44,6 +47,9 @@ export default function OfficePage() {
         setOffice(data.office);
         setCompanyName(data.office?.company_name || '');
         setLocation(data.office?.location || '');
+        setMonthlySalary(data.office?.monthly_salary ? String(data.office.monthly_salary) : '');
+        setPaidLeavesDays(data.office?.paid_leaves_days !== undefined ? String(data.office.paid_leaves_days) : '0');
+        setPerLeaveCut(data.office?.per_leave_cut !== undefined && data.office?.per_leave_cut !== null ? String(data.office.per_leave_cut) : '');
         setNotes(data.office?.notes || '');
       }
     } catch (e) {
@@ -123,6 +129,9 @@ export default function OfficePage() {
         body: JSON.stringify({
           company_name: companyName,
           location,
+          monthly_salary: Number(monthlySalary || 0),
+          paid_leaves_days: Number(paidLeavesDays || 0),
+          per_leave_cut: Number(perLeaveCut || 0),
           notes,
         }),
       });
@@ -159,7 +168,7 @@ export default function OfficePage() {
           <div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight">Office Attendance</h1>
             <p className="text-xs text-slate-500">
-              Shrikesh's daily status tracking (🟢 Working, 🟡 Office Leave, 🔴 Leave Taken)
+              Shrikesh's daily status tracking (🟢 Working, 🟡 Office Leave, 🔴 Leave Taken, 🟠 Half Day)
             </p>
           </div>
         </div>
@@ -172,17 +181,17 @@ export default function OfficePage() {
 
       {/* Office Company Header Card */}
       {office && (
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
                 Workplace
               </span>
-              {role === 'admin' && (
+              {(role === 'admin' || role === 'shrikesh') && (
                 <button
                   onClick={() => setShowEditModal(true)}
-                  className="text-indigo-600 hover:text-indigo-800 p-1"
-                  title="Edit Workplace Details"
+                  className="text-sky-600 hover:text-sky-800 p-1 rounded-lg hover:bg-sky-50 transition-colors"
+                  title="Edit Workplace & Salary Policy"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
@@ -195,6 +204,30 @@ export default function OfficePage() {
                 <span>{office.location}</span>
               </p>
             )}
+          </div>
+
+          {/* Salary & Leave Policy Pill */}
+          <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <div>
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Monthly Base Salary</span>
+              <span className="text-sm font-extrabold text-sky-700 block">
+                ₹{Number(office.monthly_salary || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="w-px h-8 bg-slate-200 hidden sm:block" />
+            <div>
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Paid Leaves</span>
+              <span className="text-sm font-extrabold text-slate-700 block">
+                {Number(office.paid_leaves_days || 0)} d / mo
+              </span>
+            </div>
+            <div className="w-px h-8 bg-slate-200 hidden sm:block" />
+            <div>
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Per Leave Cut</span>
+              <span className="text-sm font-extrabold text-rose-600 block">
+                ₹{Number(office.per_leave_cut || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
           </div>
 
           <div className="text-xs text-slate-500 sm:text-right">
@@ -211,6 +244,9 @@ export default function OfficePage() {
         onMonthChange={setCurrentMonth}
         records={calendarRecords}
         onSaveStatus={handleSaveStatus}
+        monthlySalary={Number(office?.monthly_salary || 0)}
+        paidLeavesDays={Number(office?.paid_leaves_days || 0)}
+        perLeaveCut={Number(office?.per_leave_cut || 0)}
       />
 
       {/* Admin Edit Office Modal */}
@@ -219,7 +255,8 @@ export default function OfficePage() {
           <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-md w-full border border-slate-100 space-y-4">
             <div>
               <span className="text-xs uppercase font-bold text-sky-600">Admin Control</span>
-              <h3 className="text-lg font-bold text-slate-800">Edit Workplace Info</h3>
+              <h3 className="text-lg font-bold text-slate-800">Edit Workplace & Policy</h3>
+              <p className="text-xs text-slate-400">Configure salary, paid leaves, and per-leave cut for Shrikesh.</p>
             </div>
 
             <form onSubmit={handleUpdateOffice} className="space-y-4">
@@ -246,6 +283,56 @@ export default function OfficePage() {
                   onChange={e => setLocation(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                    Monthly Base Salary (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 50000"
+                    value={monthlySalary}
+                    onChange={e => setMonthlySalary(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                    Paid Leaves / Mo (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    placeholder="e.g. 1.5 or 2"
+                    value={paidLeavesDays}
+                    onChange={e => setPaidLeavesDays(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Per Leave Salary Cut (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 1000 (0 for standard Salary / 30)"
+                  value={perLeaveCut}
+                  onChange={e => setPerLeaveCut(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Leave 0 or empty for automatic daily deduction (Salary ÷ 30).
+                </p>
               </div>
 
               <div>

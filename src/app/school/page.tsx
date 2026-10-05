@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   XCircle,
   Building,
+  Edit2,
 } from 'lucide-react';
 
 export default function SchoolPage() {
@@ -31,10 +32,13 @@ export default function SchoolPage() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [statuses, setStatuses] = useState<SchoolDailyStatus[]>([]);
 
-  // Admin School Modal
+  // Admin School Modal (Add / Edit)
   const [showSchoolModal, setShowSchoolModal] = useState(false);
+  const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState('');
   const [schoolSalary, setSchoolSalary] = useState('');
+  const [paidLeavesDays, setPaidLeavesDays] = useState('');
+  const [perLeaveCut, setPerLeaveCut] = useState('');
   const [schoolJoiningDate, setSchoolJoiningDate] = useState('');
   const [schoolNotes, setSchoolNotes] = useState('');
   const [savingSchool, setSavingSchool] = useState(false);
@@ -132,40 +136,73 @@ export default function SchoolPage() {
     }
   };
 
-  // Handle Add School
-  const handleAddSchool = async (e: React.FormEvent) => {
+  // Open Add School Modal
+  const handleOpenAddSchool = () => {
+    setEditingSchoolId(null);
+    setSchoolName('');
+    setSchoolSalary('');
+    setPaidLeavesDays('');
+    setPerLeaveCut('');
+    setSchoolJoiningDate('');
+    setSchoolNotes('');
+    setShowSchoolModal(true);
+  };
+
+  // Open Edit School Modal
+  const handleOpenEditSchool = (s: SchoolItem) => {
+    setEditingSchoolId(s.id);
+    setSchoolName(s.name);
+    setSchoolSalary(s.monthly_salary ? String(s.monthly_salary) : '');
+    setPaidLeavesDays(s.paid_leaves_days !== undefined ? String(s.paid_leaves_days) : '0');
+    setPerLeaveCut(s.per_leave_cut !== undefined ? String(s.per_leave_cut) : '');
+    setSchoolJoiningDate(s.joining_date || '');
+    setSchoolNotes(s.notes || '');
+    setShowSchoolModal(true);
+  };
+
+  // Handle Save School (Create or Update)
+  const handleSaveSchool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!schoolName) return;
 
     setSavingSchool(true);
     try {
-      const res = await fetch('/api/schools', {
-        method: 'POST',
+      const isEdit = Boolean(editingSchoolId);
+      const url = '/api/schools';
+      const method = isEdit ? 'PUT' : 'POST';
+      const payload: any = {
+        name: schoolName,
+        monthly_salary: Number(schoolSalary || 0),
+        paid_leaves_days: Number(paidLeavesDays || 0),
+        per_leave_cut: Number(perLeaveCut || 0),
+        joining_date: schoolJoiningDate || null,
+        notes: schoolNotes || null,
+      };
+
+      if (isEdit) {
+        payload.id = editingSchoolId;
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: schoolName,
-          monthly_salary: Number(schoolSalary || 0),
-          joining_date: schoolJoiningDate || null,
-          notes: schoolNotes || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         const data = await res.json();
-        toast(`School "${schoolName}" created successfully!`, 'success');
+        toast(isEdit ? `School "${schoolName}" updated successfully!` : `School "${schoolName}" created successfully!`, 'success');
         setShowSchoolModal(false);
-        setSchoolName('');
-        setSchoolSalary('');
-        setSchoolJoiningDate('');
-        setSchoolNotes('');
         await fetchSchools();
-        setSelectedSchoolId(data.school.id);
+        if (data.school?.id) {
+          setSelectedSchoolId(data.school.id);
+        }
       } else {
         const err = await res.json();
-        toast(err.error || 'Failed to create school', 'error');
+        toast(err.error || 'Failed to save school', 'error');
       }
     } catch {
-      toast('Failed to create school', 'error');
+      toast('Failed to save school', 'error');
     } finally {
       setSavingSchool(false);
     }
@@ -250,7 +287,7 @@ export default function SchoolPage() {
 
         {role === 'admin' && (
           <button
-            onClick={() => setShowSchoolModal(true)}
+            onClick={handleOpenAddSchool}
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" />
@@ -266,7 +303,7 @@ export default function SchoolPage() {
           <h3 className="text-lg font-bold text-slate-700">No Schools Added Yet</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {role === 'admin'
-              ? 'Click "Add School" above to set up a school with salary, joining date, and document storage.'
+              ? 'Click "Add School" above to set up a school with salary, paid leaves, and document storage.'
               : 'Admin has not added any school records yet.'}
           </p>
         </div>
@@ -293,23 +330,50 @@ export default function SchoolPage() {
           {/* Selected School Details & Documents Strip */}
           {selectedSchool && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Salary & Joining Info */}
-              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center justify-between">
+              {/* Salary & Leave Policy Info */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between">
                 <div>
-                  <span className="text-xs text-slate-400 uppercase font-semibold block">
-                    Monthly Salary
-                  </span>
-                  <span className="text-2xl font-black text-emerald-700 mt-1 block">
-                    ₹{Number(selectedSchool.monthly_salary || 0).toLocaleString('en-IN')}
-                  </span>
-                  {selectedSchool.joining_date && (
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      Joined: {selectedSchool.joining_date}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">
+                      Salary & Leave Policy
                     </span>
-                  )}
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  ₹
+                    {role === 'admin' && (
+                      <button
+                        onClick={() => handleOpenEditSchool(selectedSchool)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                        title="Edit Salary & Leaves"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    <div>
+                      <span className="text-xs text-slate-400">Monthly Base Salary:</span>
+                      <span className="text-xl font-black text-emerald-700 block">
+                        ₹{Number(selectedSchool.monthly_salary || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Paid Leaves</span>
+                        <span className="text-sm font-extrabold text-slate-700 block">
+                          {Number(selectedSchool.paid_leaves_days || 0)} d / mo
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Per Leave Cut</span>
+                        <span className="text-sm font-extrabold text-rose-600 block">
+                          ₹{Number(selectedSchool.per_leave_cut || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedSchool.joining_date && (
+                      <span className="text-[11px] text-slate-400 pt-1 block">
+                        Joined: {selectedSchool.joining_date}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -381,21 +445,26 @@ export default function SchoolPage() {
             onMonthChange={setCurrentMonth}
             records={calendarRecords}
             onSaveStatus={handleSaveStatus}
+            monthlySalary={Number(selectedSchool?.monthly_salary || 0)}
+            paidLeavesDays={Number(selectedSchool?.paid_leaves_days || 0)}
+            perLeaveCut={Number(selectedSchool?.per_leave_cut || 0)}
           />
         </div>
       )}
 
-      {/* Admin Add School Modal */}
+      {/* Admin Add / Edit School Modal */}
       {showSchoolModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-md w-full border border-slate-100 space-y-4">
             <div>
               <span className="text-xs uppercase font-bold text-emerald-600">Admin Control</span>
-              <h3 className="text-lg font-bold text-slate-800">Add New School</h3>
-              <p className="text-xs text-slate-400">Configure school profile for Devangi.</p>
+              <h3 className="text-lg font-bold text-slate-800">
+                {editingSchoolId ? 'Edit School Settings' : 'Add New School'}
+              </h3>
+              <p className="text-xs text-slate-400">Configure salary, paid leaves, and leave penalty for Devangi.</p>
             </div>
 
-            <form onSubmit={handleAddSchool} className="space-y-4">
+            <form onSubmit={handleSaveSchool} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
                   School Name *
@@ -410,21 +479,51 @@ export default function SchoolPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Monthly Base Salary (₹)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="45000"
+                  value={schoolSalary}
+                  onChange={e => setSchoolSalary(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                    Monthly Salary (₹)
+                  <label className="block text-[11px] font-semibold uppercase text-slate-500 mb-1">
+                    Paid Leaves / Mo (Days)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="e.g. 2"
+                    value={paidLeavesDays}
+                    onChange={e => setPaidLeavesDays(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase text-slate-500 mb-1">
+                    Per Leave Salary Cut (₹)
                   </label>
                   <input
                     type="number"
                     step="any"
-                    placeholder="45000"
-                    value={schoolSalary}
-                    onChange={e => setSchoolSalary(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g. 1500 (or 0 for calc)"
+                    value={perLeaveCut}
+                    onChange={e => setPerLeaveCut(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                <div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
                     Joining Date
                   </label>
@@ -435,19 +534,18 @@ export default function SchoolPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Notes
-                </label>
-                <input
-                  type="text"
-                  placeholder="Designation, grades taught, etc."
-                  value={schoolNotes}
-                  onChange={e => setSchoolNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                    Notes
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Designation, grades, etc."
+                    value={schoolNotes}
+                    onChange={e => setSchoolNotes(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -464,7 +562,7 @@ export default function SchoolPage() {
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-100 flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {savingSchool && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Save School</span>
+                  <span>{editingSchoolId ? 'Save Changes' : 'Save School'}</span>
                 </button>
               </div>
             </form>

@@ -3,8 +3,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { ClassItem, ClassRecord, ClassSubject } from '@/types';
+import {
+  ClassItem,
+  ClassRecord,
+  ClassSubject,
+  MonthlyClassPaymentSummary,
+  ClassPayment,
+  PaymentMode,
+  UserBalance,
+} from '@/types';
 import { calculateDurationHours } from '@/lib/time-utils';
+import { format } from 'date-fns';
 import {
   GraduationCap,
   Plus,
@@ -17,14 +26,23 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   ChevronDown,
+  ChevronUp,
   BookOpen,
   Layers,
   X,
   Download,
   Power,
   Check,
+  Wallet,
+  Banknote,
+  CreditCard,
+  History,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -88,6 +106,25 @@ export default function ClassesPage() {
   const [editRecordToTime, setEditRecordToTime] = useState('');
   const [editRecordNotes, setEditRecordNotes] = useState('');
   const [savingRecord, setSavingRecord] = useState(false);
+
+  // Monthly Class Payments & Balance state
+  const [monthlyClassesSummary, setMonthlyClassesSummary] = useState<MonthlyClassPaymentSummary[]>([]);
+  const [paymentsTotals, setPaymentsTotals] = useState({
+    total_billed: 0,
+    total_paid: 0,
+    total_cash_paid: 0,
+    total_online_paid: 0,
+    total_balance_due: 0,
+    full_paid_count: 0,
+    pending_count: 0,
+  });
+  const [loadingPayments, setLoadingPayments] = useState(true);
+  const [devangiBalance, setDevangiBalance] = useState<UserBalance | null>(null);
+  const [paymentForms, setPaymentForms] = useState<
+    Record<string, { amount: string; mode: PaymentMode; date: string; notes: string; submitting?: boolean }>
+  >({});
+  const [expandedPaymentHistory, setExpandedPaymentHistory] = useState<Record<string, boolean>>({});
+  const [showPaymentsSection, setShowPaymentsSection] = useState(true);
 
   // Protect route
   const isShrikesh = role === 'shrikesh';
@@ -155,12 +192,57 @@ export default function ClassesPage() {
     }
   }, [selectedMonth, filterClass, filterSubject]);
 
+  // 3. Fetch Monthly Class Payments and Balance Status
+  const fetchPaymentsSummary = useCallback(async () => {
+    try {
+      setLoadingPayments(true);
+      let url = `/api/class-payments?month=${selectedMonth}`;
+      if (filterClass) url += `&class_name=${encodeURIComponent(filterClass)}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setMonthlyClassesSummary(data.classesSummary || []);
+        setPaymentsTotals(
+          data.totals || {
+            total_billed: 0,
+            total_paid: 0,
+            total_cash_paid: 0,
+            total_online_paid: 0,
+            total_balance_due: 0,
+            full_paid_count: 0,
+            pending_count: 0,
+          }
+        );
+      }
+    } catch (e) {
+      console.error('Fetch payments error:', e);
+    } finally {
+      setLoadingPayments(false);
+    }
+  }, [selectedMonth, filterClass]);
+
+  // 4. Fetch Devangi's Live Balance
+  const fetchDevangiBalance = useCallback(async () => {
+    try {
+      const res = await fetch('/api/balance?user_id=devangi');
+      if (res.ok) {
+        const data = await res.json();
+        setDevangiBalance(data.balance || null);
+      }
+    } catch (e) {
+      console.error('Fetch devangi balance error:', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isShrikesh) {
       fetchClasses();
       fetchRecords();
+      fetchPaymentsSummary();
+      fetchDevangiBalance();
     }
-  }, [fetchClasses, fetchRecords, isShrikesh]);
+  }, [fetchClasses, fetchRecords, fetchPaymentsSummary, fetchDevangiBalance, isShrikesh]);
 
   // When selected class changes in entry form, sync subject dropdown
   const handleClassSelectionChange = (newClassId: string) => {
@@ -234,6 +316,7 @@ export default function ClassesPage() {
         toast(`Class saved: ${hours} hrs • ₹${totalAmount}`, 'success');
         setEntryNotes('');
         fetchRecords();
+        fetchPaymentsSummary();
       } else {
         const err = await res.json();
         toast(err.error || 'Failed to save class record', 'error');
@@ -253,6 +336,7 @@ export default function ClassesPage() {
       if (res.ok) {
         toast('Record deleted', 'info');
         fetchRecords();
+        fetchPaymentsSummary();
       }
     } catch {
       toast('Failed to delete', 'error');
@@ -437,6 +521,7 @@ export default function ClassesPage() {
         setShowEditRecordModal(false);
         setEditingRecord(null);
         fetchRecords();
+        fetchPaymentsSummary();
       } else {
         const err = await res.json();
         toast(err.error || 'Failed to update record', 'error');
@@ -607,6 +692,137 @@ export default function ClassesPage() {
     }
   };
 
+  // Helper to get or init payment form state for a class
+  const getPaymentForm = (className: string, balanceDue: number) => {
+    return (
+      paymentForms[className] || {
+        amount: balanceDue > 0 ? String(balanceDue) : '',
+        mode: 'Online' as PaymentMode,
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+        submitting: false,
+      }
+    );
+  };
+
+  const updatePaymentFormField = (
+    className: string,
+    field: 'amount' | 'mode' | 'date' | 'notes',
+    value: any,
+    fallbackBalance: number = 0
+  ) => {
+    setPaymentForms(prev => {
+      const current = prev[className] || {
+        amount: fallbackBalance > 0 ? String(fallbackBalance) : '',
+        mode: 'Online' as PaymentMode,
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+        submitting: false,
+      };
+      return {
+        ...prev,
+        [className]: {
+          ...current,
+          [field]: value,
+        },
+      };
+    });
+  };
+
+  // Record payment for an individual class
+  const handleRecordPayment = async (className: string, classId?: string, balanceDue: number = 0) => {
+    const form = getPaymentForm(className, balanceDue);
+    const amtNum = Number(form.amount);
+
+    if (isNaN(amtNum) || amtNum <= 0) {
+      toast('Please enter a valid payment amount greater than 0', 'error');
+      return;
+    }
+
+    setPaymentForms(prev => ({
+      ...prev,
+      [className]: { ...form, submitting: true },
+    }));
+
+    try {
+      const targetMonth =
+        selectedMonth === 'all'
+          ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+          : selectedMonth;
+
+      const res = await fetch('/api/class-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          class_id: classId,
+          class_name: className,
+          month: targetMonth,
+          amount: amtNum,
+          payment_mode: form.mode,
+          payment_date: form.date,
+          notes: form.notes,
+        }),
+      });
+
+      if (res.ok) {
+        toast(
+          `Payment of ₹${amtNum.toLocaleString('en-IN')} (${form.mode}) recorded for "${className}"! Devangi balance updated.`,
+          'success'
+        );
+        setPaymentForms(prev => ({
+          ...prev,
+          [className]: {
+            amount: '',
+            mode: form.mode,
+            date: new Date().toISOString().split('T')[0],
+            notes: '',
+            submitting: false,
+          },
+        }));
+        fetchPaymentsSummary();
+        fetchDevangiBalance();
+      } else {
+        const err = await res.json();
+        toast(err.error || 'Failed to record payment', 'error');
+        setPaymentForms(prev => ({
+          ...prev,
+          [className]: { ...form, submitting: false },
+        }));
+      }
+    } catch {
+      toast('Failed to record payment', 'error');
+      setPaymentForms(prev => ({
+        ...prev,
+        [className]: { ...form, submitting: false },
+      }));
+    }
+  };
+
+  // Delete a recorded class payment
+  const handleDeletePayment = async (paymentId: string, className: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete this payment record for "${className}"? The amount will be deducted from Devangi's balance.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/class-payments?id=${paymentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast(`Payment deleted for "${className}". Devangi balance updated.`, 'info');
+        fetchPaymentsSummary();
+        fetchDevangiBalance();
+      } else {
+        const err = await res.json();
+        toast(err.error || 'Failed to delete payment', 'error');
+      }
+    } catch {
+      toast('Failed to delete payment', 'error');
+    }
+  };
+
   // Selected Class details for entry form
   const selectedClass = classesList.find(c => c.id === selectedClassId);
   const availableSubjects = selectedClass?.subjects || [];
@@ -758,6 +974,429 @@ export default function ClassesPage() {
             {selectedMonth === 'all' ? 'Lifetime Income' : 'Total income'}
           </span>
         </div>
+      </div>
+
+      {/* Devangi Live Available Balance Widget */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 rounded-3xl border border-indigo-900/60 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center border border-indigo-500/30 shadow-inner">
+            <Wallet className="w-5 h-5 text-indigo-300" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-white">Devangi's Live Balance</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Auto-Updated
+              </span>
+            </div>
+            <span className="text-xs text-indigo-200/70 block">
+              Directly credited when class fees are received via Cash or Online
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2.5 text-xs font-bold sm:flex sm:items-center sm:gap-3">
+          <div className="p-3 sm:px-4 sm:py-2.5 rounded-2xl bg-white/5 border border-amber-500/30 text-left">
+            <div className="flex items-center gap-1.5 text-amber-400 mb-0.5">
+              <Banknote className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Available Cash</span>
+            </div>
+            <span className="text-white font-black text-base sm:text-lg">
+              ₹{Number(devangiBalance?.available_cash || 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          <div className="p-3 sm:px-4 sm:py-2.5 rounded-2xl bg-white/5 border border-sky-500/30 text-left">
+            <div className="flex items-center gap-1.5 text-sky-400 mb-0.5">
+              <CreditCard className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Available Online</span>
+            </div>
+            <span className="text-white font-black text-base sm:text-lg">
+              ₹{Number(devangiBalance?.available_online || 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          <div className="p-3 sm:px-4 sm:py-2.5 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 text-left">
+            <div className="flex items-center gap-1.5 text-indigo-300 mb-0.5">
+              <Wallet className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Total Available</span>
+            </div>
+            <span className="text-emerald-400 font-black text-base sm:text-lg">
+              ₹{Number(devangiBalance?.total_available || 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION: Monthly Individual Class Fees & Payment Status */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-100">
+              <Banknote className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-black text-slate-800 tracking-tight">
+                  Monthly Individual Class Fees & Payment Status
+                </h2>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {selectedMonth === 'all' ? 'All Months (Lifetime)' : format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Enter amount paid via Cash or Online • Automatically identifies Full Paid or Pending In Balance • Credits Devangi's Balance
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPaymentsSection(!showPaymentsSection)}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-600 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition-all self-start sm:self-auto"
+          >
+            {showPaymentsSection ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Hide Fee Status</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>Show Fee Status</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {showPaymentsSection && (
+          <div className="space-y-6">
+            {/* Monthly Overall Summary KPI Strip */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/70">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Monthly Record
+                </span>
+                <h4 className="text-xl font-black text-slate-800 mt-0.5">
+                  ₹{paymentsTotals.total_billed.toLocaleString('en-IN')}
+                </h4>
+                <span className="text-[11px] text-slate-500 block">Total fees from sessions</span>
+              </div>
+
+              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200/70">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                  Total Amount Paid
+                </span>
+                <h4 className="text-xl font-black text-emerald-700 mt-0.5">
+                  ₹{paymentsTotals.total_paid.toLocaleString('en-IN')}
+                </h4>
+                <span className="text-[11px] text-emerald-600/90 block">
+                  💵 ₹{paymentsTotals.total_cash_paid.toLocaleString('en-IN')} Cash • 📱 ₹{paymentsTotals.total_online_paid.toLocaleString('en-IN')} Online
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200/70">
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">
+                  Remaining In Balance
+                </span>
+                <h4 className="text-xl font-black text-amber-700 mt-0.5">
+                  ₹{paymentsTotals.total_balance_due.toLocaleString('en-IN')}
+                </h4>
+                <span className="text-[11px] text-amber-600/90 block">Pending to be paid</span>
+              </div>
+
+              <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-200/70 flex flex-col justify-between">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                  Payment Status Counts
+                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    🟢 {paymentsTotals.full_paid_count} Full Paid
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-200">
+                    🟡 {paymentsTotals.pending_count} In Balance
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Classes Payment Cards */}
+            {loadingPayments ? (
+              <div className="py-8 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                <p className="text-xs text-slate-400">Loading individual class fee statuses...</p>
+              </div>
+            ) : monthlyClassesSummary.length === 0 ? (
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200/70 text-center text-xs text-slate-500">
+                No individual classes found for this month.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {monthlyClassesSummary.map(cls => {
+                  const form = getPaymentForm(cls.class_name, cls.balance_due);
+                  const isHistoryExpanded = !!expandedPaymentHistory[cls.class_name];
+
+                  return (
+                    <div
+                      key={cls.class_name}
+                      className={`p-5 rounded-3xl border transition-all space-y-4 ${
+                        cls.status === 'full_paid'
+                          ? 'bg-gradient-to-br from-white to-emerald-50/20 border-emerald-200/90 shadow-2xs'
+                          : cls.status === 'in_balance'
+                          ? 'bg-gradient-to-br from-white to-amber-50/20 border-amber-200/90 shadow-2xs'
+                          : cls.status === 'pending'
+                          ? 'bg-gradient-to-br from-white to-rose-50/20 border-rose-200/80 shadow-2xs'
+                          : 'bg-white border-slate-200/80'
+                      }`}
+                    >
+                      {/* Top Header of Class Card */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-base font-black text-slate-800">{cls.class_name}</h3>
+                          </div>
+                          <span className="text-xs text-slate-400 block mt-0.5">
+                            {cls.monthly_records_count} session{cls.monthly_records_count === 1 ? '' : 's'} • {cls.monthly_hours} hrs taught
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0">
+                          {cls.status === 'full_paid' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Full Paid</span>
+                            </span>
+                          )}
+                          {cls.status === 'in_balance' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                              <span>₹{cls.balance_due.toLocaleString('en-IN')} In Balance</span>
+                            </span>
+                          )}
+                          {cls.status === 'pending' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Pending • ₹{cls.balance_due.toLocaleString('en-IN')} In Balance</span>
+                            </span>
+                          )}
+                          {cls.status === 'overpaid' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-800 border border-indigo-300 shadow-2xs">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Full Paid (Advance ₹{(cls.total_paid - cls.total_billed).toLocaleString('en-IN')})</span>
+                            </span>
+                          )}
+                          {cls.status === 'no_classes' && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                              No Classes This Month
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Amounts Strip */}
+                      <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50/80 rounded-2xl border border-slate-200/60 text-xs">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Record Total</span>
+                          <span className="text-sm font-black text-slate-800 block">
+                            ₹{cls.total_billed.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-emerald-600 block">Amount Paid</span>
+                          <span className="text-sm font-black text-emerald-700 block">
+                            ₹{cls.total_paid.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            Cash: ₹{cls.cash_paid} • Online: ₹{cls.online_paid}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-amber-600 block">In Balance</span>
+                          <span className="text-sm font-black text-amber-700 block">
+                            ₹{cls.balance_due.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Payment Entrance Field Form */}
+                      <div className="p-3.5 bg-indigo-50/40 rounded-2xl border border-indigo-100/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Enter Amount Paid for {cls.class_name}</span>
+                          </span>
+
+                          {cls.balance_due > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => updatePaymentFormField(cls.class_name, 'amount', String(cls.balance_due), cls.balance_due)}
+                              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-white px-2.5 py-0.5 rounded-lg border border-indigo-200 shadow-2xs transition-all"
+                            >
+                              ⚡ Pay Full (₹{cls.balance_due.toLocaleString('en-IN')})
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                          {/* Amount Input */}
+                          <div className="sm:col-span-4 relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                              ₹
+                            </span>
+                            <input
+                              type="number"
+                              step="any"
+                              min="1"
+                              placeholder="Amount Paid"
+                              value={form.amount}
+                              onChange={e => updatePaymentFormField(cls.class_name, 'amount', e.target.value, cls.balance_due)}
+                              className="w-full pl-7 pr-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          {/* Cash / Online Toggle */}
+                          <div className="sm:col-span-4 grid grid-cols-2 gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => updatePaymentFormField(cls.class_name, 'mode', 'Cash', cls.balance_due)}
+                              className={`py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${
+                                form.mode === 'Cash'
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:bg-slate-200/60'
+                              }`}
+                            >
+                              <Banknote className="w-3 h-3" />
+                              <span>Cash</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updatePaymentFormField(cls.class_name, 'mode', 'Online', cls.balance_due)}
+                              className={`py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${
+                                form.mode === 'Online'
+                                  ? 'bg-indigo-600 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:bg-slate-200/60'
+                              }`}
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              <span>Online</span>
+                            </button>
+                          </div>
+
+                          {/* Date input */}
+                          <div className="sm:col-span-4">
+                            <input
+                              type="date"
+                              value={form.date}
+                              onChange={e => updatePaymentFormField(cls.class_name, 'date', e.target.value, cls.balance_due)}
+                              className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Optional Notes and Submit Button */}
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Payment notes (e.g. October full fee, GPay ref)"
+                            value={form.notes}
+                            onChange={e => updatePaymentFormField(cls.class_name, 'notes', e.target.value, cls.balance_due)}
+                            className="w-full sm:flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+
+                          <button
+                            type="button"
+                            disabled={form.submitting}
+                            onClick={() => handleRecordPayment(cls.class_name, cls.class_id, cls.balance_due)}
+                            className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-indigo-100 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 shrink-0"
+                          >
+                            {form.submitting ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5" />
+                            )}
+                            <span>Record Payment</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Payment History Toggle & Accordion */}
+                      {cls.payments && cls.payments.length > 0 && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedPaymentHistory(prev => ({
+                                ...prev,
+                                [cls.class_name]: !prev[cls.class_name],
+                              }))
+                            }
+                            className="text-xs font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
+                          >
+                            <History className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              {isHistoryExpanded ? 'Hide' : 'View'} Payment History ({cls.payments.length})
+                            </span>
+                            {isHistoryExpanded ? (
+                              <ChevronUp className="w-3 h-3 text-slate-400" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3 text-slate-400" />
+                            )}
+                          </button>
+
+                          {isHistoryExpanded && (
+                            <div className="mt-2.5 space-y-1.5 max-h-48 overflow-y-auto pr-1 animate-in fade-in">
+                              {cls.payments.map(p => (
+                                <div
+                                  key={p.id}
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                        p.payment_mode === 'Cash'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : 'bg-indigo-100 text-indigo-800'
+                                      }`}
+                                    >
+                                      {p.payment_mode === 'Cash' ? '💵 Cash' : '📱 Online'}
+                                    </span>
+                                    <div>
+                                      <span className="font-bold text-slate-800">
+                                        ₹{Number(p.amount).toLocaleString('en-IN')}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 ml-2">
+                                        {p.payment_date}
+                                      </span>
+                                      {p.notes && (
+                                        <span className="text-[11px] text-slate-500 block truncate max-w-xs">
+                                          {p.notes}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePayment(p.id, cls.class_name)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                    title="Delete payment record (deducts from Devangi balance)"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Grid: Left Column (Entry + Admin Management) & Right Column (Records Table) */}

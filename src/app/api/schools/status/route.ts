@@ -59,12 +59,17 @@ export async function GET(req: NextRequest) {
     let workingDays = 0;
     let leaveBySchoolDays = 0;
     let leaveTakenDays = 0;
+    let halfDays = 0;
 
     res.rows.forEach(r => {
       if (r.status === 'working') workingDays++;
       else if (r.status === 'leave_by_school') leaveBySchoolDays++;
       else if (r.status === 'leave_taken') leaveTakenDays++;
+      else if (r.status === 'half_day') halfDays++;
     });
+
+    const effectiveWorkingDays = workingDays + halfDays * 0.5;
+    const effectiveLeaveTakenDays = leaveTakenDays + halfDays * 0.5;
 
     return NextResponse.json({
       statuses: res.rows,
@@ -73,6 +78,9 @@ export async function GET(req: NextRequest) {
         workingDays,
         leaveBySchoolDays,
         leaveTakenDays,
+        halfDays,
+        effectiveWorkingDays,
+        effectiveLeaveTakenDays,
       },
     });
   } catch (error: any) {
@@ -106,7 +114,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, cleared: true, school_id, status_date });
     }
 
-    if (!['working', 'leave_by_school', 'leave_taken'].includes(status)) {
+    if (!['working', 'leave_by_school', 'leave_taken', 'half_day'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
     }
 

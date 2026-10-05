@@ -126,29 +126,37 @@ export default function ReportsPage() {
               </div>
 
               {/* KPI Strip */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3 bg-slate-50 rounded-xl text-center">
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">
                     Total Classes
                   </span>
                   <span className="text-lg font-black text-slate-800">
-                    {report.classes.totalClasses || 0}
+                    {report.classes.totalClasses || 0} ({report.classes.totalHours || 0} hrs)
                   </span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl text-center">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                    Total Hours
+                <div className="p-3 bg-indigo-50 rounded-xl text-center">
+                  <span className="text-[10px] text-indigo-700 uppercase font-bold block">
+                    Total Billed
                   </span>
-                  <span className="text-lg font-black text-indigo-600">
-                    {report.classes.totalHours || 0} hrs
+                  <span className="text-lg font-black text-indigo-700">
+                    ₹{Number(report.classes.totalEarnings || 0).toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-xl text-center">
                   <span className="text-[10px] text-emerald-700 uppercase font-bold block">
-                    Earnings
+                    Total Paid
                   </span>
                   <span className="text-lg font-black text-emerald-700">
-                    ₹{Number(report.classes.totalEarnings || 0).toLocaleString('en-IN')}
+                    ₹{Number(report.classes.totalPaid || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl text-center">
+                  <span className="text-[10px] text-amber-700 uppercase font-bold block">
+                    Pending In Balance
+                  </span>
+                  <span className="text-lg font-black text-amber-700">
+                    ₹{Number(report.classes.totalBalance || 0).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>
@@ -157,20 +165,35 @@ export default function ReportsPage() {
               {report.classes.byClass && report.classes.byClass.length > 0 && (
                 <div className="pt-2">
                   <span className="text-xs font-bold text-slate-500 uppercase block mb-2">
-                    Class-wise Summary
+                    Class-wise Summary & Payment Status
                   </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {report.classes.byClass.map((c: any) => (
                       <div
                         key={c.name}
-                        className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between text-xs space-y-2"
                       >
-                        <span className="font-bold text-slate-800">{c.name}</span>
-                        <div className="text-right">
-                          <span className="text-slate-500 block text-[11px]">{c.hours} hrs</span>
-                          <span className="font-black text-indigo-700">
-                            ₹{Number(c.earnings).toLocaleString('en-IN')}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-800 text-sm">{c.name}</span>
+                          {c.status === 'full_paid' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+                              🟢 Full Paid
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              🟡 ₹{Number(c.balanceDue || 0).toLocaleString('en-IN')} In Balance
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
+                          <span>{c.hours} hrs • {c.count} sessions</span>
+                          <span className="font-bold text-slate-800">
+                            Total: ₹{Number(c.earnings).toLocaleString('en-IN')}
                           </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Paid: ₹{Number(c.paid || 0).toLocaleString('en-IN')}</span>
+                          <span>(Cash: ₹{c.cashPaid || 0} • Online: ₹{c.onlinePaid || 0})</span>
                         </div>
                       </div>
                     ))}

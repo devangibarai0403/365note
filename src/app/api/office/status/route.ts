@@ -52,12 +52,17 @@ export async function GET(req: NextRequest) {
     let workingDays = 0;
     let leaveByOfficeDays = 0;
     let leaveTakenDays = 0;
+    let halfDays = 0;
 
     res.rows.forEach(r => {
       if (r.status === 'working') workingDays++;
       else if (r.status === 'leave_by_office') leaveByOfficeDays++;
       else if (r.status === 'leave_taken') leaveTakenDays++;
+      else if (r.status === 'half_day') halfDays++;
     });
+
+    const effectiveWorkingDays = workingDays + (halfDays * 0.5);
+    const effectiveLeaveTakenDays = leaveTakenDays + (halfDays * 0.5);
 
     return NextResponse.json({
       statuses: res.rows,
@@ -66,6 +71,9 @@ export async function GET(req: NextRequest) {
         workingDays,
         leaveByOfficeDays,
         leaveTakenDays,
+        halfDays,
+        effectiveWorkingDays,
+        effectiveLeaveTakenDays,
       },
     });
   } catch (error: any) {
@@ -96,7 +104,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, cleared: true, status_date });
     }
 
-    if (!['working', 'leave_by_office', 'leave_taken'].includes(status)) {
+    if (!['working', 'leave_by_office', 'leave_taken', 'half_day'].includes(status)) {
       return NextResponse.json({ error: 'Invalid office status' }, { status: 400 });
     }
 

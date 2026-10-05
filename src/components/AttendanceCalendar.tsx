@@ -26,7 +26,7 @@ import {
 
 export interface AttendanceRecord {
   date: string; // YYYY-MM-DD
-  status: 'working' | 'leave_by_school' | 'leave_by_office' | 'leave_taken';
+  status: 'working' | 'leave_by_school' | 'leave_by_office' | 'leave_taken' | 'half_day';
   note?: string;
 }
 
@@ -37,6 +37,9 @@ interface AttendanceCalendarProps {
   records: AttendanceRecord[];
   onSaveStatus: (date: string, status: string, note?: string) => Promise<void>;
   readOnly?: boolean;
+  monthlySalary?: number;
+  paidLeavesDays?: number;
+  perLeaveCut?: number;
 }
 
 export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
@@ -46,6 +49,9 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   records,
   onSaveStatus,
   readOnly = false,
+  monthlySalary = 0,
+  paidLeavesDays = 0,
+  perLeaveCut = 0,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedNote, setSelectedNote] = useState('');
@@ -66,12 +72,25 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   let workingCount = 0;
   let leaveByOrgCount = 0;
   let leaveTakenCount = 0;
+  let halfDayCount = 0;
 
   records.forEach(r => {
     if (r.status === 'working') workingCount++;
     else if (r.status === 'leave_by_school' || r.status === 'leave_by_office') leaveByOrgCount++;
     else if (r.status === 'leave_taken') leaveTakenCount++;
+    else if (r.status === 'half_day') halfDayCount++;
   });
+
+  const effectiveWorkingDays = workingCount + (halfDayCount * 0.5);
+  const effectiveLeavesTaken = leaveTakenCount + (halfDayCount * 0.5);
+
+  // Salary cut calculations
+  const salary = Number(monthlySalary || 0);
+  const allowedPaidLeaves = Number(paidLeavesDays || 0);
+  const leaveCutRate = Number(perLeaveCut) > 0 ? Number(perLeaveCut) : (salary > 0 ? Math.round(salary / 30) : 0);
+  const unpaidLeaves = Math.max(0, effectiveLeavesTaken - allowedPaidLeaves);
+  const totalSalaryCut = Math.round(unpaidLeaves * leaveCutRate);
+  const netEstimatedSalary = Math.max(0, salary - totalSalaryCut);
 
   const orgLeaveLabel = type === 'school' ? 'Leave by School' : 'Leave by Office';
   const orgLeaveStatusKey = type === 'school' ? 'leave_by_school' : 'leave_by_office';
@@ -102,6 +121,11 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200 ring-2 ring-emerald-100" />
       );
     }
+    if (status === 'half_day') {
+      return (
+        <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-sm shadow-orange-200 ring-2 ring-orange-100" />
+      );
+    }
     if (status === 'leave_by_school' || status === 'leave_by_office') {
       return (
         <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-200 ring-2 ring-amber-100" />
@@ -118,55 +142,133 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   return (
     <div className="space-y-6">
       {/* Monthly Summary KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Working Days Card */}
         <div className="p-4 rounded-2xl bg-white border border-emerald-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
-              <CheckCircle2 className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
                 Working Days
               </span>
-              <h4 className="text-2xl font-black text-emerald-700">{workingCount} Days</h4>
+              <h4 className="text-xl font-black text-emerald-700">{effectiveWorkingDays} d</h4>
+              <p className="text-[10px] text-slate-400 font-medium">{workingCount} full + {halfDayCount} half</p>
             </div>
           </div>
-          <span className="text-xl">🟢</span>
+          <span className="text-lg">🟢</span>
+        </div>
+
+        {/* Half Day Card */}
+        <div className="p-4 rounded-2xl bg-white border border-orange-100 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+              <span className="text-sm font-black">½</span>
+            </div>
+            <div>
+              <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                Half Days
+              </span>
+              <h4 className="text-xl font-black text-orange-600">{halfDayCount} Days</h4>
+              <p className="text-[10px] text-slate-400 font-medium">0.5 work + 0.5 leave</p>
+            </div>
+          </div>
+          <span className="text-lg">🟠</span>
         </div>
 
         {/* Leave by Org Card */}
         <div className="p-4 rounded-2xl bg-white border border-amber-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
-              <AlertTriangle className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+              <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
                 {orgLeaveLabel}
               </span>
-              <h4 className="text-2xl font-black text-amber-600">{leaveByOrgCount} Days</h4>
+              <h4 className="text-xl font-black text-amber-600">{leaveByOrgCount} Days</h4>
+              <p className="text-[10px] text-slate-400 font-medium">Official holidays</p>
             </div>
           </div>
-          <span className="text-xl">🟡</span>
+          <span className="text-lg">🟡</span>
         </div>
 
         {/* Leave Taken Card */}
         <div className="p-4 rounded-2xl bg-white border border-rose-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
-              <XCircle className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+              <XCircle className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-                Leave Taken By You
+              <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                Leaves Taken
               </span>
-              <h4 className="text-2xl font-black text-rose-600">{leaveTakenCount} Days</h4>
+              <h4 className="text-xl font-black text-rose-600">{effectiveLeavesTaken} d</h4>
+              <p className="text-[10px] text-slate-400 font-medium">{leaveTakenCount} full + {halfDayCount} half</p>
             </div>
           </div>
-          <span className="text-xl">🔴</span>
+          <span className="text-lg">🔴</span>
         </div>
       </div>
+
+      {/* Salary & Leave Deduction Calculation Strip */}
+      {(salary > 0 || allowedPaidLeaves > 0 || perLeaveCut > 0) && (
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-indigo-900/50 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-800/60 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-xl bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
+                Salary & Leave Deduction Summary
+              </span>
+              <span className="text-xs text-slate-400 font-medium">({format(currentMonth, 'MMMM yyyy')})</span>
+            </div>
+            <div className="text-xs text-indigo-200">
+              Paid Leaves Allowed: <span className="font-extrabold text-white bg-indigo-800/80 px-2 py-0.5 rounded-lg">{allowedPaidLeaves} Days</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Base Salary</span>
+              <span className="text-lg font-bold text-white block mt-0.5">₹{salary.toLocaleString('en-IN')}</span>
+            </div>
+
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Leaves Taken</span>
+              <span className="text-lg font-bold text-amber-300 block mt-0.5">{effectiveLeavesTaken} d</span>
+              <span className="text-[9px] text-slate-400 block">{leaveTakenCount} full + {halfDayCount * 0.5} half</span>
+            </div>
+
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Paid Leaves</span>
+              <span className="text-lg font-bold text-emerald-400 block mt-0.5">{allowedPaidLeaves} d</span>
+              <span className="text-[9px] text-emerald-300/80 block">No cut applied</span>
+            </div>
+
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Unpaid Leaves</span>
+              <span className={`text-lg font-bold block mt-0.5 ${unpaidLeaves > 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                {unpaidLeaves} d
+              </span>
+              <span className="text-[9px] text-slate-400 block">{unpaidLeaves > 0 ? 'Exceeds limit' : 'Within limit'}</span>
+            </div>
+
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Salary Cut / Day</span>
+              <span className="text-lg font-bold text-slate-200 block mt-0.5">₹{leaveCutRate.toLocaleString('en-IN')}</span>
+              <span className="text-[9px] text-slate-400 block">{perLeaveCut > 0 ? 'Fixed rate' : 'Salary / 30'}</span>
+            </div>
+
+            <div className="bg-gradient-to-tr from-emerald-950 to-teal-900 rounded-2xl p-3 border border-emerald-500/40">
+              <span className="text-[10px] uppercase font-extrabold text-emerald-300 block">Net Estimated Salary</span>
+              <span className="text-xl font-black text-white block mt-0.5">₹{netEstimatedSalary.toLocaleString('en-IN')}</span>
+              {totalSalaryCut > 0 && (
+                <span className="text-[10px] text-rose-300 font-bold block">-₹{totalSalaryCut.toLocaleString('en-IN')} cut</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Calendar Header & Controls */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
@@ -180,7 +282,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 {format(currentMonth, 'MMMM yyyy')}
               </h3>
               <p className="text-xs text-slate-500">
-                Click any day to mark 🟢 Working, 🟡 {orgLeaveLabel}, or 🔴 Leave Taken
+                Click any day to mark 🟢 Working, 🟠 Half Day, 🟡 {orgLeaveLabel}, or 🔴 Leave Taken
               </p>
             </div>
           </div>
@@ -230,6 +332,8 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               bgClass = 'opacity-30 bg-slate-50/20 border-transparent';
             } else if (record?.status === 'working') {
               bgClass = 'bg-emerald-50/60 border-emerald-200 hover:bg-emerald-100/60';
+            } else if (record?.status === 'half_day') {
+              bgClass = 'bg-orange-50/70 border-orange-200 hover:bg-orange-100/70';
             } else if (record?.status === 'leave_by_school' || record?.status === 'leave_by_office') {
               bgClass = 'bg-amber-50/60 border-amber-200 hover:bg-amber-100/60';
             } else if (record?.status === 'leave_taken') {
@@ -265,6 +369,8 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-tight block truncate ${
                         record.status === 'working'
                           ? 'text-emerald-800 bg-emerald-100/80'
+                          : record.status === 'half_day'
+                          ? 'text-orange-800 bg-orange-100/80'
                           : record.status === 'leave_taken'
                           ? 'text-rose-800 bg-rose-100/80'
                           : 'text-amber-800 bg-amber-100/80'
@@ -272,6 +378,8 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                     >
                       {record.status === 'working'
                         ? 'Working'
+                        : record.status === 'half_day'
+                        ? 'Half Day (0.5)'
                         : record.status === 'leave_taken'
                         ? 'Leave Taken'
                         : type === 'school'
@@ -290,6 +398,10 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-emerald-500" />
             <span className="font-medium">Working (🟢)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-orange-500" />
+            <span className="font-medium">Half Day (🟠 - 0.5 Day)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-amber-400" />
@@ -325,6 +437,24 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                   <span>Working</span>
                 </div>
                 <span className="text-xs text-emerald-600 bg-emerald-200/50 px-2 py-0.5 rounded-full font-semibold">
+                  Select
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => handleSetStatus('half_day')}
+                className="w-full py-3 px-4 rounded-2xl bg-orange-50 border border-orange-200 hover:bg-orange-100 text-orange-800 font-bold text-sm flex items-center justify-between transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">🟠</span>
+                  <div className="text-left">
+                    <span className="block font-bold">Half Day</span>
+                    <span className="block text-[10px] text-orange-600 font-normal">0.5 Working + 0.5 Leave</span>
+                  </div>
+                </div>
+                <span className="text-xs text-orange-600 bg-orange-200/50 px-2 py-0.5 rounded-full font-semibold">
                   Select
                 </span>
               </button>

@@ -20,6 +20,8 @@ export async function GET() {
         id, 
         name, 
         monthly_salary, 
+        paid_leaves_days,
+        per_leave_cut,
         TO_CHAR(joining_date, 'YYYY-MM-DD') as joining_date, 
         notes, 
         is_active, 
@@ -48,6 +50,9 @@ export async function GET() {
 
     const schoolsWithDocs = schoolsRes.rows.map(s => ({
       ...s,
+      monthly_salary: Number(s.monthly_salary || 0),
+      paid_leaves_days: Number(s.paid_leaves_days || 0),
+      per_leave_cut: Number(s.per_leave_cut || 0),
       documents: docsBySchool.get(s.id) || [],
     }));
 
@@ -60,25 +65,40 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden: Admin or Devangi access required' }, { status: 403 });
   }
 
   try {
-    const { name, monthly_salary, joining_date, notes } = await req.json();
+    const { name, monthly_salary, paid_leaves_days, per_leave_cut, joining_date, notes } = await req.json();
 
     if (!name) {
       return NextResponse.json({ error: 'School name is required' }, { status: 400 });
     }
 
     const res = await query<SchoolItem>(
-      `INSERT INTO public.schools (name, monthly_salary, joining_date, notes)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, monthly_salary, TO_CHAR(joining_date, 'YYYY-MM-DD') as joining_date, notes, is_active, created_at`,
-      [name.trim(), Number(monthly_salary || 0), joining_date || null, notes || null]
+      `INSERT INTO public.schools (name, monthly_salary, paid_leaves_days, per_leave_cut, joining_date, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, monthly_salary, paid_leaves_days, per_leave_cut, TO_CHAR(joining_date, 'YYYY-MM-DD') as joining_date, notes, is_active, created_at`,
+      [
+        name.trim(),
+        Number(monthly_salary || 0),
+        Number(paid_leaves_days || 0),
+        Number(per_leave_cut || 0),
+        joining_date || null,
+        notes || null,
+      ]
     );
 
-    return NextResponse.json({ school: { ...res.rows[0], documents: [] } }, { status: 201 });
+    return NextResponse.json({
+      school: {
+        ...res.rows[0],
+        monthly_salary: Number(res.rows[0].monthly_salary || 0),
+        paid_leaves_days: Number(res.rows[0].paid_leaves_days || 0),
+        per_leave_cut: Number(res.rows[0].per_leave_cut || 0),
+        documents: [],
+      },
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Create school error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -87,12 +107,12 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+  if (!user || (user.role !== 'admin' && user.role !== 'devangi')) {
+    return NextResponse.json({ error: 'Forbidden: Admin or Devangi access required' }, { status: 403 });
   }
 
   try {
-    const { id, name, monthly_salary, joining_date, notes, is_active } = await req.json();
+    const { id, name, monthly_salary, paid_leaves_days, per_leave_cut, joining_date, notes, is_active } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
@@ -102,15 +122,19 @@ export async function PUT(req: NextRequest) {
       `UPDATE public.schools 
        SET name = COALESCE($1, name),
            monthly_salary = COALESCE($2, monthly_salary),
-           joining_date = COALESCE($3, joining_date),
-           notes = COALESCE($4, notes),
-           is_active = COALESCE($5, is_active),
+           paid_leaves_days = COALESCE($3, paid_leaves_days),
+           per_leave_cut = COALESCE($4, per_leave_cut),
+           joining_date = COALESCE($5, joining_date),
+           notes = COALESCE($6, notes),
+           is_active = COALESCE($7, is_active),
            updated_at = NOW()
-       WHERE id = $6
-       RETURNING id, name, monthly_salary, TO_CHAR(joining_date, 'YYYY-MM-DD') as joining_date, notes, is_active, created_at`,
+       WHERE id = $8
+       RETURNING id, name, monthly_salary, paid_leaves_days, per_leave_cut, TO_CHAR(joining_date, 'YYYY-MM-DD') as joining_date, notes, is_active, created_at`,
       [
         name ? name.trim() : null,
         monthly_salary !== undefined ? Number(monthly_salary) : null,
+        paid_leaves_days !== undefined ? Number(paid_leaves_days) : null,
+        per_leave_cut !== undefined ? Number(per_leave_cut) : null,
         joining_date || null,
         notes !== undefined ? notes : null,
         is_active !== undefined ? is_active : null,
@@ -122,7 +146,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'School not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ school: res.rows[0] });
+    const updated = res.rows[0];
+    return NextResponse.json({
+      school: {
+        ...updated,
+        monthly_salary: Number(updated.monthly_salary || 0),
+        paid_leaves_days: Number(updated.paid_leaves_days || 0),
+        per_leave_cut: Number(updated.per_leave_cut || 0),
+      },
+    });
   } catch (error: any) {
     console.error('Update school error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

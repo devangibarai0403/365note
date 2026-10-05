@@ -50,10 +50,43 @@ export interface ClassRecord {
   created_at: string;
 }
 
+export interface ClassPayment {
+  id: string;
+  class_id?: string;
+  class_name: string;
+  month: string;
+  amount: number;
+  payment_mode: PaymentMode;
+  payment_date: string;
+  notes?: string;
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type ClassPaymentStatus = 'full_paid' | 'in_balance' | 'pending' | 'no_classes' | 'overpaid';
+
+export interface MonthlyClassPaymentSummary {
+  class_id?: string;
+  class_name: string;
+  month: string;
+  monthly_records_count: number;
+  monthly_hours: number;
+  total_billed: number;
+  total_paid: number;
+  cash_paid: number;
+  online_paid: number;
+  balance_due: number;
+  status: ClassPaymentStatus;
+  payments: ClassPayment[];
+}
+
 export interface SchoolItem {
   id: string;
   name: string;
   monthly_salary: number;
+  paid_leaves_days?: number;
+  per_leave_cut?: number;
   joining_date?: string;
   notes?: string;
   is_active: boolean;
@@ -72,14 +105,14 @@ export interface SchoolDocument {
   created_at: string;
 }
 
-export type AttendanceStatus = 'working' | 'leave_by_school' | 'leave_by_office' | 'leave_taken';
+export type AttendanceStatus = 'working' | 'leave_by_school' | 'leave_by_office' | 'leave_taken' | 'half_day';
 
 export interface SchoolDailyStatus {
   id: string;
   school_id: string;
   school_name?: string;
   status_date: string;
-  status: 'working' | 'leave_by_school' | 'leave_taken';
+  status: 'working' | 'leave_by_school' | 'leave_taken' | 'half_day';
   user_id: string;
   note?: string;
   created_at: string;
@@ -89,6 +122,9 @@ export interface OfficeItem {
   id: string;
   company_name: string;
   location?: string;
+  monthly_salary?: number;
+  paid_leaves_days?: number;
+  per_leave_cut?: number;
   notes?: string;
   created_at: string;
 }
@@ -97,7 +133,7 @@ export interface OfficeDailyStatus {
   id: string;
   office_id?: string;
   status_date: string;
-  status: 'working' | 'leave_by_office' | 'leave_taken';
+  status: 'working' | 'leave_by_office' | 'leave_taken' | 'half_day';
   user_id: string;
   note?: string;
   created_at: string;

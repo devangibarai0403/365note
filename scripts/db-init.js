@@ -89,11 +89,32 @@ async function main() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    -- 3b. Class Payments (Payments made by individual classes via cash/online)
+    CREATE TABLE IF NOT EXISTS public.class_payments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
+      class_name VARCHAR(150) NOT NULL,
+      month VARCHAR(7) NOT NULL,
+      amount NUMERIC(10, 2) NOT NULL,
+      payment_mode VARCHAR(20) NOT NULL DEFAULT 'Online',
+      payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      notes TEXT,
+      created_by VARCHAR(50) NOT NULL DEFAULT 'devangi',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_class_payments_month ON public.class_payments(month);
+    CREATE INDEX IF NOT EXISTS idx_class_payments_class_name ON public.class_payments(class_name);
+    CREATE INDEX IF NOT EXISTS idx_class_payments_created_by ON public.class_payments(created_by);
+
     -- 4. Schools (Managed by Admin for Devangi)
     CREATE TABLE IF NOT EXISTS public.schools (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name VARCHAR(200) NOT NULL,
       monthly_salary NUMERIC(12, 2) DEFAULT 0.00,
+      paid_leaves_days NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+      per_leave_cut NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
       joining_date DATE,
       notes TEXT,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -113,12 +134,12 @@ async function main() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    -- 6. School Daily Status (Devangi's attendance: Working, Leave by School, Leave taken by You)
+    -- 6. School Daily Status (Devangi's attendance: Working, Leave by School, Leave taken by You, Half Day)
     CREATE TABLE IF NOT EXISTS public.school_daily_status (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
       status_date DATE NOT NULL,
-      status VARCHAR(30) NOT NULL CHECK (status IN ('working', 'leave_by_school', 'leave_taken')),
+      status VARCHAR(30) NOT NULL CHECK (status IN ('working', 'leave_by_school', 'leave_taken', 'half_day')),
       user_id VARCHAR(50) NOT NULL DEFAULT 'devangi',
       note TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -131,6 +152,9 @@ async function main() {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       company_name VARCHAR(200) NOT NULL DEFAULT 'Main Office',
       location VARCHAR(200),
+      monthly_salary NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+      paid_leaves_days NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+      per_leave_cut NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
       notes TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -141,12 +165,12 @@ async function main() {
     SELECT 'Main Office', 'HQ'
     WHERE NOT EXISTS (SELECT 1 FROM public.office);
 
-    -- 8. Office Daily Status (Shrikesh's attendance: Working, Leave by Office, Leave taken by You)
+    -- 8. Office Daily Status (Shrikesh's attendance: Working, Leave by Office, Leave taken by You, Half Day)
     CREATE TABLE IF NOT EXISTS public.office_daily_status (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       office_id UUID REFERENCES public.office(id) ON DELETE CASCADE,
       status_date DATE NOT NULL,
-      status VARCHAR(30) NOT NULL CHECK (status IN ('working', 'leave_by_office', 'leave_taken')),
+      status VARCHAR(30) NOT NULL CHECK (status IN ('working', 'leave_by_office', 'leave_taken', 'half_day')),
       user_id VARCHAR(50) NOT NULL DEFAULT 'shrikesh',
       note TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

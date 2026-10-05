@@ -82,9 +82,27 @@ export async function GET(req: NextRequest) {
     const kharchaCash = Number(kharchaRes.rows[0]?.kharcha_cash || 0);
     const kharchaOnline = Number(kharchaRes.rows[0]?.kharcha_online || 0);
 
-    // Live Available Balances: initial + received - sent - kharcha
-    const availableCash = Math.round((initialCash + cashReceived - cashSent - kharchaCash) * 100) / 100;
-    const availableOnline = Math.round((initialOnline + onlineReceived - onlineSent - kharchaOnline) * 100) / 100;
+    // 4. Cumulative class payments received for targetUser (Devangi)
+    let classCash = 0;
+    let classOnline = 0;
+    if (targetUser === 'devangi') {
+      const classPayRes = await query<{
+        class_cash: string | number;
+        class_online: string | number;
+      }>(
+        `SELECT
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'cash' THEN amount ELSE 0 END), 0) AS class_cash,
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'online' THEN amount ELSE 0 END), 0) AS class_online
+         FROM public.class_payments
+         WHERE LOWER(created_by) = 'devangi'`
+      );
+      classCash = Number(classPayRes.rows[0]?.class_cash || 0);
+      classOnline = Number(classPayRes.rows[0]?.class_online || 0);
+    }
+
+    // Live Available Balances: initial + received + classes - sent - kharcha
+    const availableCash = Math.round((initialCash + cashReceived + classCash - cashSent - kharchaCash) * 100) / 100;
+    const availableOnline = Math.round((initialOnline + onlineReceived + classOnline - onlineSent - kharchaOnline) * 100) / 100;
     const totalAvailable = Math.round((availableCash + availableOnline) * 100) / 100;
 
     return NextResponse.json({
@@ -96,6 +114,8 @@ export async function GET(req: NextRequest) {
         cash_sent: cashSent,
         online_received: onlineReceived,
         online_sent: onlineSent,
+        classes_cash: classCash,
+        classes_online: classOnline,
         kharcha_cash: kharchaCash,
         kharcha_online: kharchaOnline,
         available_cash: availableCash,
@@ -166,10 +186,28 @@ export async function POST(req: NextRequest) {
     const kharchaCash = Number(kharchaRes.rows[0]?.kharcha_cash || 0);
     const kharchaOnline = Number(kharchaRes.rows[0]?.kharcha_online || 0);
 
-    // available = initial + received - sent - kharcha
-    // => initial = available - received + sent + kharcha
-    const newInitialCash = desiredCash !== null ? desiredCash - cashReceived + cashSent + kharchaCash : null;
-    const newInitialOnline = desiredOnline !== null ? desiredOnline - onlineReceived + onlineSent + kharchaOnline : null;
+    // Get current class payments received for targetUser (Devangi)
+    let classCash = 0;
+    let classOnline = 0;
+    if (targetUser === 'devangi') {
+      const classPayRes = await query<{
+        class_cash: string | number;
+        class_online: string | number;
+      }>(
+        `SELECT
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'cash' THEN amount ELSE 0 END), 0) AS class_cash,
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'online' THEN amount ELSE 0 END), 0) AS class_online
+         FROM public.class_payments
+         WHERE LOWER(created_by) = 'devangi'`
+      );
+      classCash = Number(classPayRes.rows[0]?.class_cash || 0);
+      classOnline = Number(classPayRes.rows[0]?.class_online || 0);
+    }
+
+    // available = initial + (received + class_received) - sent - kharcha
+    // => initial = available - (received + class_received) + sent + kharcha
+    const newInitialCash = desiredCash !== null ? desiredCash - (cashReceived + classCash) + cashSent + kharchaCash : null;
+    const newInitialOnline = desiredOnline !== null ? desiredOnline - (onlineReceived + classOnline) + onlineSent + kharchaOnline : null;
 
     // Check existing
     const existing = await query(
@@ -190,8 +228,8 @@ export async function POST(req: NextRequest) {
       [targetUser, finalInitialCash, finalInitialOnline]
     );
 
-    const updatedCash = Math.round((finalInitialCash + cashReceived - cashSent - kharchaCash) * 100) / 100;
-    const updatedOnline = Math.round((finalInitialOnline + onlineReceived - onlineSent - kharchaOnline) * 100) / 100;
+    const updatedCash = Math.round((finalInitialCash + cashReceived + classCash - cashSent - kharchaCash) * 100) / 100;
+    const updatedOnline = Math.round((finalInitialOnline + onlineReceived + classOnline - onlineSent - kharchaOnline) * 100) / 100;
 
     return NextResponse.json({
       success: true,
@@ -206,6 +244,8 @@ export async function POST(req: NextRequest) {
         cash_sent: cashSent,
         online_received: onlineReceived,
         online_sent: onlineSent,
+        classes_cash: classCash,
+        classes_online: classOnline,
         kharcha_cash: kharchaCash,
         kharcha_online: kharchaOnline,
       },
