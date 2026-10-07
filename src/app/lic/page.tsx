@@ -259,7 +259,7 @@ export default function LicPage() {
             <li>Set an amount and deduction day of the month (e.g., day 5 = every 5th).</li>
             <li><strong>Runs once every day at midnight (12:00 AM IST)</strong> in the database — <strong>even if the website is not opened</strong>.</li>
             <li>When the date matches the entered date, the amount is automatically deducted from Devangi&apos;s <strong>Online balance</strong>.</li>
-            <li>Appears in Family Money as a <strong>Sent &rarr; Online &rarr; LIC</strong> transaction.</li>
+            <li>Kept completely separate from Family Money — tracked under <strong>Available Money &rarr; LIC Auto Deduction</strong>.</li>
             <li>Deducted <strong>only once per month</strong> — no duplicate deductions.</li>
             <li>You can also click <strong>&quot;Process Now&quot;</strong> anytime to manually trigger it.</li>
           </ul>
@@ -455,7 +455,7 @@ export default function LicPage() {
               </div>
 
               <div className="bg-violet-50 border border-violet-100 rounded-xl p-3.5 text-xs text-violet-900 leading-relaxed">
-                &#x1F6E1;&#xFE0F; <span className="font-semibold">Deducted from Online balance.</span> Shows up as Sent &#x2192; LIC in Family Money.
+                &#x1F6E1;&#xFE0F; <span className="font-semibold">Deducted from Online balance.</span> Tracked under Available Money (separate from Family Money).
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

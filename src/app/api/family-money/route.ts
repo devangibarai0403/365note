@@ -43,6 +43,9 @@ export async function GET(req: NextRequest) {
       sql += ` AND LOWER(user_id) = $${params.length}`;
     }
 
+    // Never include LIC deduction records in Family Money
+    sql += ` AND UPPER(person_name) != 'LIC' AND (reason IS NULL OR reason NOT ILIKE '%LIC%')`;
+
     if (date) {
       params.push(date);
       sql += ` AND transaction_date = $${params.length}`;
