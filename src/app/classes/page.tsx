@@ -54,12 +54,20 @@ export default function ClassesPage() {
   const [classesList, setClassesList] = useState<ClassItem[]>([]);
   const [records, setRecords] = useState<ClassRecord[]>([]);
   const [summary, setSummary] = useState({ totalRecords: 0, totalHours: 0, totalEarnings: 0 });
+  const [todayStats, setTodayStats] = useState({ count: 0, hours: 0, earnings: 0 });
 
-  // Filter state
+  // Filter state for overall page (KPIs, Monthly Class Fees, Devangi Balance)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  // Dedicated filter state for Class Records History section
+  const [recordsMonth, setRecordsMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
   const [filterClass, setFilterClass] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,11 +172,11 @@ export default function ClassesPage() {
     }
   }, []);
 
-  // 2. Fetch Class Records with filters
+  // 2. Fetch Class Records for Class Records History section (only affected by recordsMonth)
   const fetchRecords = useCallback(async () => {
     try {
       setLoading(true);
-      let url = `/api/class-records?month=${selectedMonth}`;
+      let url = `/api/class-records?month=${recordsMonth}`;
       if (filterClass) url += `&class_name=${encodeURIComponent(filterClass)}`;
       if (filterSubject) url += `&subject_name=${encodeURIComponent(filterSubject)}`;
 
@@ -176,28 +184,55 @@ export default function ClassesPage() {
       if (res.ok) {
         const data = await res.json();
         setRecords(data.records || []);
-        setSummary(data.summary || { totalRecords: 0, totalHours: 0, totalEarnings: 0 });
       } else {
         const err = await res.json().catch(() => ({}));
         console.error('Fetch records failed:', err);
         setRecords([]);
-        setSummary({ totalRecords: 0, totalHours: 0, totalEarnings: 0 });
       }
     } catch (e) {
       console.error(e);
       setRecords([]);
-      setSummary({ totalRecords: 0, totalHours: 0, totalEarnings: 0 });
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, filterClass, filterSubject]);
+  }, [recordsMonth, filterClass, filterSubject]);
+
+  // 2b. Fetch Overall Page Monthly Summary for top KPI cards (affected by page selectedMonth)
+  const fetchMonthlySummary = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/class-records?month=${selectedMonth}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSummary(data.summary || { totalRecords: 0, totalHours: 0, totalEarnings: 0 });
+      }
+    } catch (e) {
+      console.error('Fetch monthly summary error:', e);
+    }
+  }, [selectedMonth]);
+
+  // 2c. Fetch Today's Overall Stats for top KPI cards
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const fetchTodayStats = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/class-records?date=${todayDateStr}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTodayStats({
+          count: data.summary?.totalRecords || 0,
+          hours: data.summary?.totalHours || 0,
+          earnings: data.summary?.totalEarnings || 0,
+        });
+      }
+    } catch (e) {
+      console.error('Fetch today stats error:', e);
+    }
+  }, [todayDateStr]);
 
   // 3. Fetch Monthly Class Payments and Balance Status
   const fetchPaymentsSummary = useCallback(async () => {
     try {
       setLoadingPayments(true);
-      let url = `/api/class-payments?month=${selectedMonth}`;
-      if (filterClass) url += `&class_name=${encodeURIComponent(filterClass)}`;
+      const url = `/api/class-payments?month=${selectedMonth}`;
 
       const res = await fetch(url);
       if (res.ok) {
@@ -220,7 +255,7 @@ export default function ClassesPage() {
     } finally {
       setLoadingPayments(false);
     }
-  }, [selectedMonth, filterClass]);
+  }, [selectedMonth]);
 
   // 4. Fetch Devangi's Live Balance
   const fetchDevangiBalance = useCallback(async () => {
@@ -239,10 +274,12 @@ export default function ClassesPage() {
     if (!isShrikesh) {
       fetchClasses();
       fetchRecords();
+      fetchMonthlySummary();
+      fetchTodayStats();
       fetchPaymentsSummary();
       fetchDevangiBalance();
     }
-  }, [fetchClasses, fetchRecords, fetchPaymentsSummary, fetchDevangiBalance, isShrikesh]);
+  }, [fetchClasses, fetchRecords, fetchMonthlySummary, fetchTodayStats, fetchPaymentsSummary, fetchDevangiBalance, isShrikesh]);
 
   // When selected class changes in entry form, sync subject dropdown
   const handleClassSelectionChange = (newClassId: string) => {
@@ -316,6 +353,8 @@ export default function ClassesPage() {
         toast(`Class saved: ${hours} hrs • ₹${totalAmount}`, 'success');
         setEntryNotes('');
         fetchRecords();
+        fetchMonthlySummary();
+        fetchTodayStats();
         fetchPaymentsSummary();
       } else {
         const err = await res.json();
@@ -336,6 +375,8 @@ export default function ClassesPage() {
       if (res.ok) {
         toast('Record deleted', 'info');
         fetchRecords();
+        fetchMonthlySummary();
+        fetchTodayStats();
         fetchPaymentsSummary();
       }
     } catch {
@@ -521,6 +562,8 @@ export default function ClassesPage() {
         setShowEditRecordModal(false);
         setEditingRecord(null);
         fetchRecords();
+        fetchMonthlySummary();
+        fetchTodayStats();
         fetchPaymentsSummary();
       } else {
         const err = await res.json();
@@ -828,11 +871,6 @@ export default function ClassesPage() {
   const availableSubjects = selectedClass?.subjects || [];
   const selectedSubject = availableSubjects.find(s => s.id === selectedSubjectId) || availableSubjects[0];
 
-  // Today's stats calculation
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayRecords = records.filter(r => r.record_date === todayStr);
-  const todayHours = todayRecords.reduce((acc, r) => acc + Number(r.hours || 0), 0);
-  const todayEarnings = todayRecords.reduce((acc, r) => acc + Number(r.total_amount || 0), 0);
 
   // Month selector options (includes All Months + past 12 months)
   const monthOptions: { val: string; label: string }[] = [
@@ -875,6 +913,23 @@ export default function ClassesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Top Page-Wide Month Filter */}
+          <div className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl px-3 py-1.5 shadow-sm transition-colors">
+            <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Month:</span>
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer pr-1"
+            >
+              {monthOptions.map(m => (
+                <option key={m.val} value={m.val}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={() => handleExportExcel('all')}
@@ -923,14 +978,14 @@ export default function ClassesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <span className="text-[11px] font-semibold text-slate-400 uppercase">Today's Classes</span>
-          <h3 className="text-2xl font-black text-slate-800 mt-1">{todayRecords.length}</h3>
+          <h3 className="text-2xl font-black text-slate-800 mt-1">{todayStats.count}</h3>
           <span className="text-[10px] text-slate-400">Sessions today</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <span className="text-[11px] font-semibold text-slate-400 uppercase">Today's Hours</span>
           <h3 className="text-2xl font-black text-indigo-600 mt-1">
-            {Math.round(todayHours * 100) / 100} hrs
+            {Math.round(todayStats.hours * 100) / 100} hrs
           </h3>
           <span className="text-[10px] text-slate-400">Hours taught</span>
         </div>
@@ -938,7 +993,7 @@ export default function ClassesPage() {
         <div className="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm bg-gradient-to-br from-white to-emerald-50/40">
           <span className="text-[11px] font-semibold text-emerald-600 uppercase">Today's Earnings</span>
           <h3 className="text-2xl font-black text-emerald-700 mt-1">
-            ₹{Math.round(todayEarnings).toLocaleString('en-IN')}
+            ₹{Math.round(todayStats.earnings).toLocaleString('en-IN')}
           </h3>
           <span className="text-[10px] text-emerald-600/80">Earned today</span>
         </div>
@@ -1734,8 +1789,8 @@ export default function ClassesPage() {
             {/* Filters & Export */}
             <div className="flex flex-wrap items-center gap-2">
               <select
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
+                value={recordsMonth}
+                onChange={e => setRecordsMonth(e.target.value)}
                 className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none"
               >
                 {monthOptions.map(m => (
@@ -1761,21 +1816,21 @@ export default function ClassesPage() {
               {/* Export Month Button */}
               <button
                 type="button"
-                onClick={() => handleExportExcel(selectedMonth)}
+                onClick={() => handleExportExcel(recordsMonth)}
                 disabled={exportingMonth}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                title={`Export ${selectedMonth === 'all' ? 'All Months' : selectedMonth} records to Excel`}
+                title={`Export ${recordsMonth === 'all' ? 'All Months' : recordsMonth} records to Excel`}
               >
                 {exportingMonth ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                 )}
-                <span>{selectedMonth === 'all' ? 'Export Excel' : 'Export Month (.xlsx)'}</span>
+                <span>{recordsMonth === 'all' ? 'Export Excel' : 'Export Month (.xlsx)'}</span>
               </button>
 
               {/* Export All Months Button */}
-              {selectedMonth !== 'all' && (
+              {recordsMonth !== 'all' && (
                 <button
                   type="button"
                   onClick={() => handleExportExcel('all')}
