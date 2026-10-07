@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { SchoolItem, SchoolDailyStatus } from '@/types';
 import { AttendanceCalendar, AttendanceRecord } from '@/components/AttendanceCalendar';
+import { MonthlySalaryCard } from '@/components/MonthlySalaryCard';
 import { format } from 'date-fns';
 import {
   School as SchoolIcon,
@@ -31,6 +32,7 @@ export default function SchoolPage() {
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [statuses, setStatuses] = useState<SchoolDailyStatus[]>([]);
+  const [salaryRefreshKey, setSalaryRefreshKey] = useState(0);
 
   // Admin School Modal (Add / Edit)
   const [showSchoolModal, setShowSchoolModal] = useState(false);
@@ -127,6 +129,7 @@ export default function SchoolPage() {
       if (res.ok) {
         toast(status === 'clear' ? `School status removed: ${date}` : `Attendance marked: ${date}`, 'success');
         fetchAttendance();
+        setSalaryRefreshKey(k => k + 1);
       } else {
         const err = await res.json();
         toast(err.error || 'Failed to save attendance', 'error');
@@ -437,6 +440,19 @@ export default function SchoolPage() {
               </div>
             </div>
           )}
+
+          {/* Monthly Received Salary & Carry-Over Balance */}
+          <MonthlySalaryCard
+            key={`school-salary-${selectedSchoolId}-${salaryRefreshKey}`}
+            type="school"
+            schoolId={selectedSchoolId}
+            currentMonth={currentMonth}
+            onSalaryChanged={() => {
+              fetchAttendance();
+              setSalaryRefreshKey(k => k + 1);
+            }}
+            userRole={role}
+          />
 
           {/* Interactive Attendance Calendar Component */}
           <AttendanceCalendar

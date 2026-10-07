@@ -177,9 +177,45 @@ export interface UserBalance {
   cash_sent: number;
   online_received: number;
   online_sent: number;
+  classes_cash?: number;
+  classes_online?: number;
+  salary_cash?: number;
+  salary_online?: number;
   kharcha_cash?: number;
   kharcha_online?: number;
   updated_at?: string;
+}
+
+export interface SalaryPayment {
+  id: string;
+  user_id: string;
+  type: 'school' | 'office';
+  school_id?: string | null;
+  office_id?: string | null;
+  source_name: string;
+  month: string;
+  amount: number;
+  payment_mode: PaymentMode;
+  payment_date: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlySalarySummary {
+  month: string;
+  base_salary: number;
+  leaves_taken: number;
+  paid_leaves_days: number;
+  unpaid_leaves: number;
+  leave_deduction: number;
+  net_estimated_salary: number;
+  previous_balance: number;
+  total_receivable: number;
+  total_received: number;
+  balance_remaining: number;
+  is_balanced: boolean;
+  payments: SalaryPayment[];
 }
 
 export interface AdminCalendarNote {

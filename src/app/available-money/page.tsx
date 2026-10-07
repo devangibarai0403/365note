@@ -24,6 +24,8 @@ import {
   Coins,
   DollarSign,
   GraduationCap,
+  School,
+  Building2,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -37,6 +39,8 @@ interface UserBalance {
   online_sent: number;
   classes_cash?: number;
   classes_online?: number;
+  salary_cash?: number;
+  salary_online?: number;
   kharcha_cash: number;
   kharcha_online: number;
   available_cash: number;
@@ -67,6 +71,8 @@ export default function AvailableMoneyPage() {
   const [recentKharcha, setRecentKharcha] = useState<any[]>([]);
   const [recentFamily, setRecentFamily] = useState<any[]>([]);
   const [recentLic, setRecentLic] = useState<any[]>([]);
+  const [recentSalary, setRecentSalary] = useState<any[]>([]);
+  const [salarySummary, setSalarySummary] = useState<any | null>(null);
   const [logsLoading, setLogsLoading] = useState(true);
 
   const effectiveUser = role === 'admin' ? targetUser : (role === 'shrikesh' ? 'shrikesh' : 'devangi');
@@ -114,7 +120,19 @@ export default function AvailableMoneyPage() {
           setRecentLic([]);
         });
 
-      await Promise.all([kharchaPromise, familyPromise]);
+      // 3. Fetch Salary Payments
+      const salaryPromise = fetch(`/api/salary-payments?type=${effectiveUser === 'devangi' ? 'school' : 'office'}&month=${currentMonth}`)
+        .then(r => r.ok ? r.json() : { summary: null })
+        .then(d => {
+          setSalarySummary(d.summary);
+          setRecentSalary(d.summary?.payments || []);
+        })
+        .catch(() => {
+          setSalarySummary(null);
+          setRecentSalary([]);
+        });
+
+      await Promise.all([kharchaPromise, familyPromise, salaryPromise]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -281,6 +299,22 @@ export default function AvailableMoneyPage() {
               <span className="flex items-center gap-1 text-emerald-400">
                 +₹{Number(balance?.cash_received || 0).toLocaleString('en-IN')} in
               </span>
+              {Number(balance?.salary_cash || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-emerald-300">
+                    +₹{Number(balance?.salary_cash || 0).toLocaleString('en-IN')} salary
+                  </span>
+                </>
+              )}
+              {Number(balance?.classes_cash || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-emerald-300">
+                    +₹{Number(balance?.classes_cash || 0).toLocaleString('en-IN')} classes
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="flex items-center gap-1 text-rose-400">
                 -₹{Number(balance?.cash_sent || 0).toLocaleString('en-IN')} sent
@@ -318,6 +352,22 @@ export default function AvailableMoneyPage() {
               <span className="flex items-center gap-1 text-emerald-400">
                 +₹{Number(balance?.online_received || 0).toLocaleString('en-IN')} in
               </span>
+              {Number(balance?.salary_online || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-emerald-300">
+                    +₹{Number(balance?.salary_online || 0).toLocaleString('en-IN')} salary
+                  </span>
+                </>
+              )}
+              {Number(balance?.classes_online || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-emerald-300">
+                    +₹{Number(balance?.classes_online || 0).toLocaleString('en-IN')} classes
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="flex items-center gap-1 text-rose-400">
                 -₹{Number(balance?.online_sent || 0).toLocaleString('en-IN')} sent
@@ -370,7 +420,7 @@ export default function AvailableMoneyPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Card 1: Family Money Channel */}
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
             <div>
@@ -598,6 +648,97 @@ export default function AvailableMoneyPage() {
                 className="w-full py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
               >
                 <span>Manage LIC Settings</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 4: Monthly Salary Channel (School / Office) */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    {effectiveUser === 'devangi' ? <School className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">
+                      {effectiveUser === 'devangi' ? 'School Salary' : 'Office Salary'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Monthly compensation & balance</p>
+                  </div>
+                </div>
+                <Link
+                  href={effectiveUser === 'devangi' ? '/school' : '/office'}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                  title={effectiveUser === 'devangi' ? 'Open School' : 'Open Office'}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-2.5">
+                  <span className="text-[10px] font-bold uppercase text-emerald-700 block">Received This Month</span>
+                  <span className="text-base font-black text-emerald-700">
+                    +₹{Number(salarySummary?.total_received || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className={`rounded-xl p-2.5 border ${
+                  Number(salarySummary?.balance_remaining || 0) === 0 && Number(salarySummary?.total_received || 0) > 0
+                    ? 'bg-emerald-50/70 border-emerald-100 text-emerald-700'
+                    : Number(salarySummary?.balance_remaining || 0) > 0
+                    ? 'bg-rose-50/70 border-rose-100 text-rose-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                }`}>
+                  <span className="text-[10px] font-bold uppercase block">
+                    {Number(salarySummary?.balance_remaining || 0) === 0 ? 'Status' : 'Remaining Due'}
+                  </span>
+                  <span className="text-base font-black block">
+                    {Number(salarySummary?.balance_remaining || 0) === 0 && Number(salarySummary?.total_received || 0) > 0
+                      ? 'Balanced'
+                      : `₹${Number(salarySummary?.balance_remaining || 0).toLocaleString('en-IN')}`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Recent Logs List */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold uppercase text-slate-400 block">Recent Salary Payments</span>
+                {logsLoading ? (
+                  <div className="py-6 flex justify-center text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  </div>
+                ) : recentSalary.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-3 text-center">No salary payments recorded this month</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {recentSalary.map(item => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 rounded-xl bg-emerald-50/60 border border-emerald-100 text-xs"
+                      >
+                        <div>
+                          <p className="font-bold text-slate-800">{item.source_name || 'Salary'}</p>
+                          <span className="text-[10px] text-slate-400">{item.payment_date} • {item.payment_mode}</span>
+                        </div>
+                        <span className="font-black text-emerald-700">
+                          +₹{Number(item.amount).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 mt-4 border-t border-slate-100">
+              <Link
+                href={effectiveUser === 'devangi' ? '/school' : '/office'}
+                className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+              >
+                <span>{effectiveUser === 'devangi' ? 'View School Salary' : 'View Office Salary'}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </Link>
             </div>

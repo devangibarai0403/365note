@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { OfficeItem, OfficeDailyStatus } from '@/types';
 import { AttendanceCalendar, AttendanceRecord } from '@/components/AttendanceCalendar';
+import { MonthlySalaryCard } from '@/components/MonthlySalaryCard';
 import { format } from 'date-fns';
 import {
   Building2,
@@ -24,6 +25,7 @@ export default function OfficePage() {
   const [office, setOffice] = useState<OfficeItem | null>(null);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [statuses, setStatuses] = useState<OfficeDailyStatus[]>([]);
+  const [salaryRefreshKey, setSalaryRefreshKey] = useState(0);
 
   // Admin Office editing modal
   const [showEditModal, setShowEditModal] = useState(false);
@@ -109,6 +111,7 @@ export default function OfficePage() {
       if (res.ok) {
         toast(status === 'clear' ? `Office status removed: ${date}` : `Office status saved: ${date}`, 'success');
         fetchAttendance();
+        setSalaryRefreshKey(k => k + 1);
       } else {
         const err = await res.json();
         toast(err.error || 'Failed to save office status', 'error');
@@ -236,6 +239,18 @@ export default function OfficePage() {
           </div>
         </div>
       )}
+
+      {/* Monthly Received Salary & Carry-Over Balance */}
+      <MonthlySalaryCard
+        key={`office-salary-${salaryRefreshKey}`}
+        type="office"
+        currentMonth={currentMonth}
+        onSalaryChanged={() => {
+          fetchAttendance();
+          setSalaryRefreshKey(k => k + 1);
+        }}
+        userRole={role}
+      />
 
       {/* Interactive Attendance Calendar Component */}
       <AttendanceCalendar

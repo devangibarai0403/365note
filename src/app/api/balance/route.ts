@@ -100,9 +100,30 @@ export async function GET(req: NextRequest) {
       classOnline = Number(classPayRes.rows[0]?.class_online || 0);
     }
 
-    // Live Available Balances: initial + received + classes - sent - kharcha
-    const availableCash = Math.round((initialCash + cashReceived + classCash - cashSent - kharchaCash) * 100) / 100;
-    const availableOnline = Math.round((initialOnline + onlineReceived + classOnline - onlineSent - kharchaOnline) * 100) / 100;
+    // 5. Cumulative salary payments received for targetUser (School for Devangi, Office for Shrikesh)
+    let salaryCash = 0;
+    let salaryOnline = 0;
+    try {
+      const salaryPayRes = await query<{
+        salary_cash: string | number;
+        salary_online: string | number;
+      }>(
+        `SELECT
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'cash' THEN amount ELSE 0 END), 0) AS salary_cash,
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'online' THEN amount ELSE 0 END), 0) AS salary_online
+         FROM public.salary_payments
+         WHERE LOWER(user_id) = $1`,
+        [targetUser]
+      );
+      salaryCash = Number(salaryPayRes.rows[0]?.salary_cash || 0);
+      salaryOnline = Number(salaryPayRes.rows[0]?.salary_online || 0);
+    } catch (e) {
+      console.warn('salary_payments query error:', e);
+    }
+
+    // Live Available Balances: initial + received + classes + salary - sent - kharcha
+    const availableCash = Math.round((initialCash + cashReceived + classCash + salaryCash - cashSent - kharchaCash) * 100) / 100;
+    const availableOnline = Math.round((initialOnline + onlineReceived + classOnline + salaryOnline - onlineSent - kharchaOnline) * 100) / 100;
     const totalAvailable = Math.round((availableCash + availableOnline) * 100) / 100;
 
     return NextResponse.json({
@@ -116,6 +137,8 @@ export async function GET(req: NextRequest) {
         online_sent: onlineSent,
         classes_cash: classCash,
         classes_online: classOnline,
+        salary_cash: salaryCash,
+        salary_online: salaryOnline,
         kharcha_cash: kharchaCash,
         kharcha_online: kharchaOnline,
         available_cash: availableCash,
@@ -204,10 +227,31 @@ export async function POST(req: NextRequest) {
       classOnline = Number(classPayRes.rows[0]?.class_online || 0);
     }
 
-    // available = initial + (received + class_received) - sent - kharcha
-    // => initial = available - (received + class_received) + sent + kharcha
-    const newInitialCash = desiredCash !== null ? desiredCash - (cashReceived + classCash) + cashSent + kharchaCash : null;
-    const newInitialOnline = desiredOnline !== null ? desiredOnline - (onlineReceived + classOnline) + onlineSent + kharchaOnline : null;
+    // Get current salary payments received for targetUser
+    let salaryCash = 0;
+    let salaryOnline = 0;
+    try {
+      const salaryPayRes = await query<{
+        salary_cash: string | number;
+        salary_online: string | number;
+      }>(
+        `SELECT
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'cash' THEN amount ELSE 0 END), 0) AS salary_cash,
+          COALESCE(SUM(CASE WHEN LOWER(COALESCE(payment_mode, 'online')) = 'online' THEN amount ELSE 0 END), 0) AS salary_online
+         FROM public.salary_payments
+         WHERE LOWER(user_id) = $1`,
+        [targetUser]
+      );
+      salaryCash = Number(salaryPayRes.rows[0]?.salary_cash || 0);
+      salaryOnline = Number(salaryPayRes.rows[0]?.salary_online || 0);
+    } catch (e) {
+      console.warn('salary_payments query error:', e);
+    }
+
+    // available = initial + (received + class_received + salary_received) - sent - kharcha
+    // => initial = available - (received + class_received + salary_received) + sent + kharcha
+    const newInitialCash = desiredCash !== null ? desiredCash - (cashReceived + classCash + salaryCash) + cashSent + kharchaCash : null;
+    const newInitialOnline = desiredOnline !== null ? desiredOnline - (onlineReceived + classOnline + salaryOnline) + onlineSent + kharchaOnline : null;
 
     // Check existing
     const existing = await query(
@@ -228,8 +272,8 @@ export async function POST(req: NextRequest) {
       [targetUser, finalInitialCash, finalInitialOnline]
     );
 
-    const updatedCash = Math.round((finalInitialCash + cashReceived + classCash - cashSent - kharchaCash) * 100) / 100;
-    const updatedOnline = Math.round((finalInitialOnline + onlineReceived + classOnline - onlineSent - kharchaOnline) * 100) / 100;
+    const updatedCash = Math.round((finalInitialCash + cashReceived + classCash + salaryCash - cashSent - kharchaCash) * 100) / 100;
+    const updatedOnline = Math.round((finalInitialOnline + onlineReceived + classOnline + salaryOnline - onlineSent - kharchaOnline) * 100) / 100;
 
     return NextResponse.json({
       success: true,
@@ -246,6 +290,8 @@ export async function POST(req: NextRequest) {
         online_sent: onlineSent,
         classes_cash: classCash,
         classes_online: classOnline,
+        salary_cash: salaryCash,
+        salary_online: salaryOnline,
         kharcha_cash: kharchaCash,
         kharcha_online: kharchaOnline,
       },
