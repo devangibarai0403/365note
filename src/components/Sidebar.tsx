@@ -17,6 +17,7 @@ import {
   Sparkles,
   CheckSquare,
   ShieldCheck,
+  Coins,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       return [
         { label: 'Dashboard', href: '/', icon: LayoutDashboard },
         { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
+        { label: 'Available Money', href: '/available-money', icon: Coins },
         { label: 'Classes', href: '/classes', icon: GraduationCap },
         { label: 'School', href: '/school', icon: SchoolIcon },
         { label: 'Daily Kharcha', href: '/kharcha', icon: Wallet },
@@ -48,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       return [
         { label: 'Dashboard', href: '/', icon: LayoutDashboard },
         { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
+        { label: 'Available Money', href: '/available-money', icon: Coins },
         { label: 'Office', href: '/office', icon: Building2 },
         { label: 'Daily Kharcha', href: '/kharcha', icon: Wallet },
         { label: 'Family Money', href: '/family-money', icon: Users2 },
@@ -59,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     return [
       { label: 'Dashboard', href: '/', icon: LayoutDashboard },
       { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
+      { label: 'Available Money', href: '/available-money', icon: Coins },
       { label: 'Classes', href: '/classes', icon: GraduationCap },
       { label: 'Schools', href: '/school', icon: SchoolIcon },
       { label: 'Office', href: '/office', icon: Building2 },

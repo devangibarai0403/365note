@@ -69,10 +69,13 @@ export async function GET(req: NextRequest) {
     let onlineSent = 0;
     const memberBreakdown: Record<string, { received: number; sent: number }> = {};
 
+    let licSent = 0;
+
     res.rows.forEach(r => {
       const amt = Number(r.amount || 0);
       const person = r.person_name || 'Unknown';
       const mode = (r.payment_mode || 'Online').toLowerCase();
+      const isLic = person.toUpperCase() === 'LIC' || (r.reason && r.reason.toUpperCase().includes('LIC'));
 
       if (!memberBreakdown[person]) {
         memberBreakdown[person] = { received: 0, sent: 0 };
@@ -90,17 +93,23 @@ export async function GET(req: NextRequest) {
           onlineReceived += amt;
         }
       } else if (r.transaction_type === 'sent') {
-        totalSent += amt;
-        memberBreakdown[person].sent += amt;
-        if (person.toLowerCase() === 'papa') {
-          sentToPapa += amt;
+        if (isLic) {
+          // Track LIC separately - do not count towards total sent to family members
+          licSent += amt;
+          memberBreakdown[person].sent += amt;
         } else {
-          sentToOtherFamily += amt;
-        }
-        if (mode === 'cash') {
-          cashSent += amt;
-        } else {
-          onlineSent += amt;
+          totalSent += amt;
+          memberBreakdown[person].sent += amt;
+          if (person.toLowerCase() === 'papa') {
+            sentToPapa += amt;
+          } else {
+            sentToOtherFamily += amt;
+          }
+          if (mode === 'cash') {
+            cashSent += amt;
+          } else {
+            onlineSent += amt;
+          }
         }
       }
     });
@@ -110,6 +119,7 @@ export async function GET(req: NextRequest) {
       summary: {
         totalReceived: Math.round(totalReceived * 100) / 100,
         totalSent: Math.round(totalSent * 100) / 100,
+        licSent: Math.round(licSent * 100) / 100,
         netFlow: Math.round((totalReceived - totalSent) * 100) / 100,
         receivedFromPapa: Math.round(receivedFromPapa * 100) / 100,
         sentToPapa: Math.round(sentToPapa * 100) / 100,

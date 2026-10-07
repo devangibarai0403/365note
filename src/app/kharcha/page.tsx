@@ -228,49 +228,6 @@ export default function DailyKharchaPage() {
         )}
       </div>
 
-      {/* Live Available Balance Widget */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 rounded-3xl border border-indigo-900/60 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center border border-indigo-500/30">
-            <Wallet className="w-5 h-5 text-indigo-300" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-white">Live Available Balance</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 capitalize">
-                {role === 'admin' ? (adminUserFilter || forUser) : (user?.display_name || user?.username)}
-              </span>
-            </div>
-            <span className="text-xs text-indigo-200/70 block">
-              Directly deducted on every cash/online expense
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2.5 text-xs font-bold sm:flex sm:items-center sm:gap-3">
-          <div className="p-2.5 sm:px-4 sm:py-2 rounded-2xl bg-white/5 border border-amber-500/30 text-left">
-            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Available Cash</span>
-            <span className="text-white font-black text-base sm:text-lg">
-              ₹{Number(balance?.available_cash || 0).toLocaleString('en-IN')}
-            </span>
-          </div>
-
-          <div className="p-2.5 sm:px-4 sm:py-2 rounded-2xl bg-white/5 border border-sky-500/30 text-left">
-            <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider block">Available Online</span>
-            <span className="text-white font-black text-base sm:text-lg">
-              ₹{Number(balance?.available_online || 0).toLocaleString('en-IN')}
-            </span>
-          </div>
-
-          <div className="p-2.5 sm:px-4 sm:py-2 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 text-left">
-            <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider block">Total Available</span>
-            <span className="text-emerald-400 font-black text-base sm:text-lg">
-              ₹{Number(balance?.total_available || 0).toLocaleString('en-IN')}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* KPI Cards: Today, This Month, Cash, Online */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Today's Expense */}
