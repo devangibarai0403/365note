@@ -16,6 +16,7 @@ import {
   FileText,
   Sparkles,
   CheckSquare,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         { label: 'School', href: '/school', icon: SchoolIcon },
         { label: 'Daily Kharcha', href: '/kharcha', icon: Wallet },
         { label: 'Family Money', href: '/family-money', icon: Users2 },
+        { label: 'LIC Deduction', href: '/lic', icon: ShieldCheck },
         { label: 'Monthly Report', href: '/reports', icon: FileText },
       ];
     }
@@ -62,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       { label: 'Office', href: '/office', icon: Building2 },
       { label: 'Daily Kharcha', href: '/kharcha', icon: Wallet },
       { label: 'Family Money', href: '/family-money', icon: Users2 },
+      { label: 'LIC Deduction', href: '/lic', icon: ShieldCheck },
       { label: 'Excel Import', href: '/excel-import', icon: FileSpreadsheet },
       { label: 'Calendar', href: '/calendar', icon: CalendarDays },
       { label: 'Reports', href: '/reports', icon: FileText },
