@@ -39,7 +39,6 @@ export default function SchoolPage() {
   const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState('');
   const [schoolSalary, setSchoolSalary] = useState('');
-  const [paidLeavesDays, setPaidLeavesDays] = useState('');
   const [perLeaveCut, setPerLeaveCut] = useState('');
   const [schoolJoiningDate, setSchoolJoiningDate] = useState('');
   const [schoolNotes, setSchoolNotes] = useState('');
@@ -144,7 +143,6 @@ export default function SchoolPage() {
     setEditingSchoolId(null);
     setSchoolName('');
     setSchoolSalary('');
-    setPaidLeavesDays('');
     setPerLeaveCut('');
     setSchoolJoiningDate('');
     setSchoolNotes('');
@@ -156,7 +154,6 @@ export default function SchoolPage() {
     setEditingSchoolId(s.id);
     setSchoolName(s.name);
     setSchoolSalary(s.monthly_salary ? String(s.monthly_salary) : '');
-    setPaidLeavesDays(s.paid_leaves_days !== undefined ? String(s.paid_leaves_days) : '0');
     setPerLeaveCut(s.per_leave_cut !== undefined ? String(s.per_leave_cut) : '');
     setSchoolJoiningDate(s.joining_date || '');
     setSchoolNotes(s.notes || '');
@@ -176,7 +173,7 @@ export default function SchoolPage() {
       const payload: any = {
         name: schoolName,
         monthly_salary: Number(schoolSalary || 0),
-        paid_leaves_days: Number(paidLeavesDays || 0),
+        paid_leaves_days: 0,
         per_leave_cut: Number(perLeaveCut || 0),
         joining_date: schoolJoiningDate || null,
         notes: schoolNotes || null,
@@ -306,7 +303,7 @@ export default function SchoolPage() {
           <h3 className="text-lg font-bold text-slate-700">No Schools Added Yet</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {role === 'admin'
-              ? 'Click "Add School" above to set up a school with salary, paid leaves, and document storage.'
+              ? 'Click "Add School" above to set up a school with salary, leave deduction rate, and document storage.'
               : 'Admin has not added any school records yet.'}
           </p>
         </div>
@@ -357,17 +354,19 @@ export default function SchoolPage() {
                         ₹{Number(selectedSchool.monthly_salary || 0).toLocaleString('en-IN')}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Paid Leaves</span>
-                        <span className="text-sm font-extrabold text-slate-700 block">
-                          {Number(selectedSchool.paid_leaves_days || 0)} d / mo
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Leave Policy</span>
+                        <span className="text-xs font-bold text-slate-700 block">
+                          No Paid Leaves (Cut applies to all leaves)
                         </span>
                       </div>
-                      <div>
+                      <div className="text-right">
                         <span className="text-[10px] text-slate-400 uppercase font-semibold block">Per Leave Cut</span>
                         <span className="text-sm font-extrabold text-rose-600 block">
-                          ₹{Number(selectedSchool.per_leave_cut || 0).toLocaleString('en-IN')}
+                          {Number(selectedSchool.per_leave_cut || 0) > 0
+                            ? `₹${Number(selectedSchool.per_leave_cut).toLocaleString('en-IN')}`
+                            : 'Salary ÷ 30'}
                         </span>
                       </div>
                     </div>
@@ -462,7 +461,7 @@ export default function SchoolPage() {
             records={calendarRecords}
             onSaveStatus={handleSaveStatus}
             monthlySalary={Number(selectedSchool?.monthly_salary || 0)}
-            paidLeavesDays={Number(selectedSchool?.paid_leaves_days || 0)}
+            paidLeavesDays={0}
             perLeaveCut={Number(selectedSchool?.per_leave_cut || 0)}
           />
         </div>
@@ -477,7 +476,7 @@ export default function SchoolPage() {
               <h3 className="text-lg font-bold text-slate-800">
                 {editingSchoolId ? 'Edit School Settings' : 'Add New School'}
               </h3>
-              <p className="text-xs text-slate-400">Configure salary, paid leaves, and leave penalty for Devangi.</p>
+              <p className="text-xs text-slate-400">Configure salary and per-leave salary cut for Devangi.</p>
             </div>
 
             <form onSubmit={handleSaveSchool} className="space-y-4">
@@ -509,33 +508,21 @@ export default function SchoolPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase text-slate-500 mb-1">
-                    Paid Leaves / Mo (Days)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    placeholder="e.g. 2"
-                    value={paidLeavesDays}
-                    onChange={e => setPaidLeavesDays(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase text-slate-500 mb-1">
-                    Per Leave Salary Cut (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="e.g. 1500 (or 0 for calc)"
-                    value={perLeaveCut}
-                    onChange={e => setPerLeaveCut(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Per Leave Salary Cut (₹)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="e.g. 700 (or leave empty for monthly salary ÷ 30)"
+                  value={perLeaveCut}
+                  onChange={e => setPerLeaveCut(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  No paid leaves for school. If left empty or 0, daily cut defaults to monthly salary ÷ 30.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

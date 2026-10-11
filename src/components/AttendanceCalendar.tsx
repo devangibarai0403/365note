@@ -86,7 +86,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
   // Salary cut calculations
   const salary = Number(monthlySalary || 0);
-  const allowedPaidLeaves = Number(paidLeavesDays || 0);
+  const allowedPaidLeaves = type === 'school' ? 0 : Number(paidLeavesDays || 0);
   const leaveCutRate = Number(perLeaveCut) > 0 ? Number(perLeaveCut) : (salary > 0 ? Math.round(salary / 30) : 0);
   const unpaidLeaves = Math.max(0, effectiveLeavesTaken - allowedPaidLeaves);
   const totalSalaryCut = Math.round(unpaidLeaves * leaveCutRate);
@@ -213,6 +213,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       </div>
 
       {/* Salary & Leave Deduction Calculation Strip */}
+      {/* Salary & Leave Deduction Calculation Strip */}
       {(salary > 0 || allowedPaidLeaves > 0 || perLeaveCut > 0) && (
         <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-indigo-900/50 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-800/60 pb-3">
@@ -222,12 +223,18 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               </span>
               <span className="text-xs text-slate-400 font-medium">({format(currentMonth, 'MMMM yyyy')})</span>
             </div>
-            <div className="text-xs text-indigo-200">
-              Paid Leaves Allowed: <span className="font-extrabold text-white bg-indigo-800/80 px-2 py-0.5 rounded-lg">{allowedPaidLeaves} Days</span>
-            </div>
+            {type !== 'school' ? (
+              <div className="text-xs text-indigo-200">
+                Paid Leaves Allowed: <span className="font-extrabold text-white bg-indigo-800/80 px-2 py-0.5 rounded-lg">{allowedPaidLeaves} Days</span>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">
+                Leave Policy: <span className="font-semibold text-indigo-200">No Paid Leaves (Deduction applies to all leaves)</span>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 ${type === 'school' ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-3`}>
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
               <span className="text-[10px] uppercase font-semibold text-slate-400 block">Base Salary</span>
               <span className="text-lg font-bold text-white block mt-0.5">₹{salary.toLocaleString('en-IN')}</span>
@@ -239,24 +246,32 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               <span className="text-[9px] text-slate-400 block">{leaveTakenCount} full + {halfDayCount * 0.5} half</span>
             </div>
 
-            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Paid Leaves</span>
-              <span className="text-lg font-bold text-emerald-400 block mt-0.5">{allowedPaidLeaves} d</span>
-              <span className="text-[9px] text-emerald-300/80 block">No cut applied</span>
-            </div>
+            {type !== 'school' && (
+              <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+                <span className="text-[10px] uppercase font-semibold text-slate-400 block">Paid Leaves</span>
+                <span className="text-lg font-bold text-emerald-400 block mt-0.5">{allowedPaidLeaves} d</span>
+                <span className="text-[9px] text-emerald-300/80 block">No cut applied</span>
+              </div>
+            )}
 
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Unpaid Leaves</span>
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block">
+                {type === 'school' ? 'Deducted Leaves' : 'Unpaid Leaves'}
+              </span>
               <span className={`text-lg font-bold block mt-0.5 ${unpaidLeaves > 0 ? 'text-rose-400' : 'text-slate-300'}`}>
                 {unpaidLeaves} d
               </span>
-              <span className="text-[9px] text-slate-400 block">{unpaidLeaves > 0 ? 'Exceeds limit' : 'Within limit'}</span>
+              <span className="text-[9px] text-slate-400 block">
+                {type === 'school'
+                  ? (unpaidLeaves > 0 ? 'Cut applied' : 'None')
+                  : (unpaidLeaves > 0 ? 'Exceeds limit' : 'Within limit')}
+              </span>
             </div>
 
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
               <span className="text-[10px] uppercase font-semibold text-slate-400 block">Salary Cut / Day</span>
               <span className="text-lg font-bold text-slate-200 block mt-0.5">₹{leaveCutRate.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-slate-400 block">{perLeaveCut > 0 ? 'Fixed rate' : 'Salary / 30'}</span>
+              <span className="text-[9px] text-slate-400 block">{perLeaveCut > 0 ? 'Fixed rate' : 'Salary ÷ 30'}</span>
             </div>
 
             <div className="bg-gradient-to-tr from-emerald-950 to-teal-900 rounded-2xl p-3 border border-emerald-500/40">

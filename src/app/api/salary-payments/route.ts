@@ -38,7 +38,8 @@ async function calculateMonthNetSalary(
   }
 
   const effectiveLeaves = leavesTaken + halfDays * 0.5;
-  const unpaidLeaves = Math.max(0, effectiveLeaves - paidLeavesDays);
+  const actualPaidLeaves = type === 'school' ? 0 : paidLeavesDays;
+  const unpaidLeaves = Math.max(0, effectiveLeaves - actualPaidLeaves);
   const cutRate = perLeaveCut > 0 ? perLeaveCut : (baseSalary > 0 ? Math.round(baseSalary / 30) : 0);
   const leaveDeduction = Math.round(unpaidLeaves * cutRate);
   const netSalary = Math.max(0, baseSalary - leaveDeduction);
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
         resolvedSchoolId = schoolRes.rows[0].id;
         sourceName = schoolRes.rows[0].name;
         baseSalary = Number(schoolRes.rows[0].monthly_salary || 0);
-        paidLeavesDays = Number(schoolRes.rows[0].paid_leaves_days || 0);
+        paidLeavesDays = 0; // School has no paid leaves
         perLeaveCut = Number(schoolRes.rows[0].per_leave_cut || 0);
       }
     } else {
