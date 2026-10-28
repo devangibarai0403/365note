@@ -18,6 +18,12 @@ import {
   Plus,
   Loader2,
   FileSpreadsheet,
+  Palette,
+  Sparkles,
+  ShoppingBag,
+  TrendingDown,
+  Banknote,
+  CreditCard,
 } from 'lucide-react';
 import { QuickAddModal } from '@/components/QuickAddModal';
 
@@ -347,6 +353,132 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Devangi Resin Studio Budgeting Section */}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-pink-200/90 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-pink-100 pb-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white border border-pink-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/drs_logo/resin_logo.png"
+                    alt="Devangi Resin Studio"
+                    className="w-full h-full object-contain filter drop-shadow-xs"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-black text-slate-800">Resin Studio Budgeting</h3>
+                    <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-700 border border-pink-200">
+                      Studio Space
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Orders revenue, material costs, net profit &amp; live Available Money tracking
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/devangiresinstudio/orderscatalogue"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+                  <span>Public Catalogue ↗</span>
+                </Link>
+                <Link
+                  href="/resin-accounts"
+                  className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-pink-200 transition-all flex items-center gap-1.5"
+                >
+                  <span>Open Resin Accounts</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* 4 Resin Budgeting Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Paid Orders Revenue */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/50 to-white border border-emerald-100 shadow-xs">
+                <div className="flex items-center justify-between text-emerald-700 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Paid Revenue (In)
+                  </span>
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-emerald-700 block mt-1">
+                  ₹{Number(stats?.resin?.totalRevenue || 0).toLocaleString('en-IN')}
+                </span>
+                <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                  Cash: <strong>₹{Number(stats?.resin?.paidCod || 0).toLocaleString('en-IN')}</strong> • UPI: <strong>₹{Number(stats?.resin?.paidUpi || 0).toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
+              {/* Card 2: Material & Studio Expenses */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50/50 to-white border border-rose-100 shadow-xs">
+                <div className="flex items-center justify-between text-rose-700 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Resin Expenses (Out)
+                  </span>
+                  <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                    <TrendingDown className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-rose-600 block mt-1">
+                  -₹{Number(stats?.resin?.totalExpenses || 0).toLocaleString('en-IN')}
+                </span>
+                <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                  Cash: <strong>₹{Number(stats?.resin?.expenseCod || 0).toLocaleString('en-IN')}</strong> • UPI: <strong>₹{Number(stats?.resin?.expenseUpi || 0).toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
+              {/* Card 3: Net Studio Profit */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/50 to-white border border-purple-100 shadow-xs">
+                <div className="flex items-center justify-between text-purple-700 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Net Studio Profit
+                  </span>
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                    <Palette className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className={`text-2xl font-black block mt-1 ${
+                  Number(stats?.resin?.netProfit || 0) >= 0 ? 'text-slate-800' : 'text-rose-600'
+                }`}>
+                  ₹{Number(stats?.resin?.netProfit || 0).toLocaleString('en-IN')}
+                </span>
+                <div className="text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                  Revenue minus materials &amp; supplies
+                </div>
+              </div>
+
+              {/* Card 4: Orders & Pending Receivables */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-pink-50/50 to-white border border-pink-100 shadow-xs">
+                <div className="flex items-center justify-between text-pink-700 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Orders Status
+                  </span>
+                  <div className="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-slate-800 block mt-1">
+                  {stats?.resin?.totalOrders || 0} Orders
+                </span>
+                <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <span>{stats?.resin?.paidOrders || 0} Paid • {stats?.resin?.unpaidOrders || 0} Unpaid</span>
+                  {Number(stats?.resin?.pendingAmount || 0) > 0 && (
+                    <span className="font-bold text-amber-600">Due ₹{Number(stats?.resin?.pendingAmount || 0).toLocaleString('en-IN')}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -499,17 +631,17 @@ export default function DashboardPage() {
       {role === 'admin' && (
         <div className="space-y-8 animate-in fade-in">
           {/* Quick Action Tiles for Admin */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <Link
-              href="/excel-import"
-              className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md flex items-center gap-3 hover:scale-[1.02] transition-transform"
+              href="/resin-accounts"
+              className="p-4 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-purple-600 text-white shadow-md flex items-center gap-3 hover:scale-[1.02] transition-transform"
             >
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                <FileSpreadsheet className="w-5 h-5" />
+                <Palette className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-sm">Upload Excel</h4>
-                <p className="text-[11px] text-white/80">Import old classes</p>
+                <h4 className="font-bold text-sm">Resin Accounts</h4>
+                <p className="text-[11px] text-white/80">Orders &amp; Studio</p>
               </div>
             </Link>
 
@@ -535,7 +667,20 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h4 className="font-bold text-sm">Manage Schools</h4>
-                <p className="text-[11px] text-white/80">Salaries & Blob docs</p>
+                <p className="text-[11px] text-white/80">Salaries &amp; Blob docs</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/excel-import"
+              className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md flex items-center gap-3 hover:scale-[1.02] transition-transform"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm">Upload Excel</h4>
+                <p className="text-[11px] text-white/80">Import old classes</p>
               </div>
             </Link>
 
@@ -548,7 +693,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h4 className="font-bold text-sm">Admin Calendar</h4>
-                <p className="text-[11px] text-white/80">Notes & reminders</p>
+                <p className="text-[11px] text-white/80">Notes &amp; reminders</p>
               </div>
             </Link>
           </div>
@@ -626,6 +771,134 @@ export default function DashboardPage() {
                   Sent to Papa: ₹
                   {Number(stats?.familyMoney?.devangi?.papaSent || 0).toLocaleString('en-IN')}
                 </span>
+              </div>
+            </div>
+
+            {/* Devangi Resin Studio Budgeting for Admin */}
+            <div className="pt-6 border-t border-rose-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-white border border-pink-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/drs_logo/resin_logo.png"
+                      alt="Devangi Resin Studio"
+                      className="w-full h-full object-contain filter drop-shadow-xs"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-black text-slate-800 text-base sm:text-lg">
+                        Devangi Resin Studio Budgeting
+                      </h4>
+                      <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-700 border border-pink-200">
+                        Studio Space
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Live revenue, material expenses, net profit &amp; Available Money tracking
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/devangiresinstudio/orderscatalogue"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+                    <span>Public Catalogue ↗</span>
+                  </Link>
+                  <Link
+                    href="/resin-accounts"
+                    className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-pink-200 transition-all flex items-center gap-1.5"
+                  >
+                    <span>Resin Accounts</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* 4 Budgeting Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Paid Revenue */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/50 to-white border border-emerald-100 shadow-xs">
+                  <div className="flex items-center justify-between text-emerald-700 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Paid Revenue (In)
+                    </span>
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  <span className="text-2xl font-black text-emerald-700 block mt-1">
+                    ₹{Number(stats?.resin?.totalRevenue || 0).toLocaleString('en-IN')}
+                  </span>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                    Cash: <strong>₹{Number(stats?.resin?.paidCod || 0).toLocaleString('en-IN')}</strong> • UPI: <strong>₹{Number(stats?.resin?.paidUpi || 0).toLocaleString('en-IN')}</strong>
+                  </div>
+                </div>
+
+                {/* Card 2: Resin Expenses */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50/50 to-white border border-rose-100 shadow-xs">
+                  <div className="flex items-center justify-between text-rose-700 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Resin Expenses (Out)
+                    </span>
+                    <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                      <TrendingDown className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  <span className="text-2xl font-black text-rose-600 block mt-1">
+                    -₹{Number(stats?.resin?.totalExpenses || 0).toLocaleString('en-IN')}
+                  </span>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                    Cash: <strong>₹{Number(stats?.resin?.expenseCod || 0).toLocaleString('en-IN')}</strong> • UPI: <strong>₹{Number(stats?.resin?.expenseUpi || 0).toLocaleString('en-IN')}</strong>
+                  </div>
+                </div>
+
+                {/* Card 3: Net Studio Profit */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/50 to-white border border-purple-100 shadow-xs">
+                  <div className="flex items-center justify-between text-purple-700 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Net Studio Profit
+                    </span>
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                      <Palette className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  <span className={`text-2xl font-black block mt-1 ${
+                    Number(stats?.resin?.netProfit || 0) >= 0 ? 'text-slate-800' : 'text-rose-600'
+                  }`}>
+                    ₹{Number(stats?.resin?.netProfit || 0).toLocaleString('en-IN')}
+                  </span>
+                  <div className="text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                    Revenue minus materials &amp; supplies
+                  </div>
+                </div>
+
+                {/* Card 4: Orders Status */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-pink-50/50 to-white border border-pink-100 shadow-xs">
+                  <div className="flex items-center justify-between text-pink-700 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Orders Status
+                    </span>
+                    <div className="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  <span className="text-2xl font-black text-slate-800 block mt-1">
+                    {stats?.resin?.totalOrders || 0} Orders
+                  </span>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span>{stats?.resin?.paidOrders || 0} Paid • {stats?.resin?.unpaidOrders || 0} Due</span>
+                    {Number(stats?.resin?.pendingAmount || 0) > 0 && (
+                      <span className="font-bold text-amber-600">Due ₹{Number(stats?.resin?.pendingAmount || 0).toLocaleString('en-IN')}</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -18,6 +18,7 @@ import {
   CheckSquare,
   ShieldCheck,
   Coins,
+  Palette,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     if (role === 'devangi') {
       return [
         { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { label: 'Resin Accounts', href: '/resin-accounts', icon: Palette, highlight: true },
         { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
         { label: 'Available Money', href: '/available-money', icon: Coins },
         { label: 'Classes', href: '/classes', icon: GraduationCap },
@@ -61,6 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     // Admin has access to all modules
     return [
       { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { label: 'Resin Accounts', href: '/resin-accounts', icon: Palette },
       { label: 'Daily Planner', href: '/planner', icon: CheckSquare },
       { label: 'Available Money', href: '/available-money', icon: Coins },
       { label: 'Classes', href: '/classes', icon: GraduationCap },
@@ -145,6 +148,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {navItems.map(item => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const isHighlighted = (item as any).highlight;
+
+            if (isHighlighted) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                    isActive
+                      ? 'bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 text-white shadow-pink-200 shadow-md ring-2 ring-pink-400/40'
+                      : 'bg-gradient-to-r from-pink-100/90 via-rose-100/90 to-purple-100/90 text-pink-700 hover:from-pink-200 hover:to-purple-200 border border-pink-300/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      className={`w-5 h-5 transition-transform ${
+                        isActive ? 'text-white scale-110' : 'text-pink-600'
+                      }`}
+                    />
+                    <span>{item.label}</span>
+                  </div>
+                  <span
+                    className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-pink-200/90 text-pink-800'
+                    }`}
+                  >
+                    Studio
+                  </span>
+                </Link>
+              );
+            }
 
             return (
               <Link

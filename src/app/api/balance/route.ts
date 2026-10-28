@@ -121,9 +121,46 @@ export async function GET(req: NextRequest) {
       console.warn('salary_payments query error:', e);
     }
 
-    // Live Available Balances: initial + received + classes + salary - sent - kharcha
-    const availableCash = Math.round((initialCash + cashReceived + classCash + salaryCash - cashSent - kharchaCash) * 100) / 100;
-    const availableOnline = Math.round((initialOnline + onlineReceived + classOnline + salaryOnline - onlineSent - kharchaOnline) * 100) / 100;
+    // 6. Cumulative Resin Studio orders (received) and expenses (deducted) for Devangi
+    let resinCashReceived = 0;
+    let resinOnlineReceived = 0;
+    let resinCashExpense = 0;
+    let resinOnlineExpense = 0;
+
+    if (targetUser === 'devangi') {
+      try {
+        const resinOrderRes = await query<{
+          resin_cash: string | number;
+          resin_online: string | number;
+        }>(
+          `SELECT
+            COALESCE(SUM(CASE WHEN payment_mode = 'cod' THEN price ELSE 0 END), 0) AS resin_cash,
+            COALESCE(SUM(CASE WHEN payment_mode = 'upi' THEN price ELSE 0 END), 0) AS resin_online
+           FROM public.resin_orders
+           WHERE status = 'paid'`
+        );
+        resinCashReceived = Number(resinOrderRes.rows[0]?.resin_cash || 0);
+        resinOnlineReceived = Number(resinOrderRes.rows[0]?.resin_online || 0);
+
+        const resinExpRes = await query<{
+          resin_exp_cash: string | number;
+          resin_exp_online: string | number;
+        }>(
+          `SELECT
+            COALESCE(SUM(CASE WHEN payment_mode = 'cod' THEN amount ELSE 0 END), 0) AS resin_exp_cash,
+            COALESCE(SUM(CASE WHEN payment_mode = 'upi' THEN amount ELSE 0 END), 0) AS resin_exp_online
+           FROM public.resin_expenses`
+        );
+        resinCashExpense = Number(resinExpRes.rows[0]?.resin_exp_cash || 0);
+        resinOnlineExpense = Number(resinExpRes.rows[0]?.resin_exp_online || 0);
+      } catch (e) {
+        console.warn('resin query in balance error:', e);
+      }
+    }
+
+    // Live Available Balances: initial + received + classes + salary + resin - sent - kharcha - resin_expenses
+    const availableCash = Math.round((initialCash + cashReceived + classCash + salaryCash + resinCashReceived - cashSent - kharchaCash - resinCashExpense) * 100) / 100;
+    const availableOnline = Math.round((initialOnline + onlineReceived + classOnline + salaryOnline + resinOnlineReceived - onlineSent - kharchaOnline - resinOnlineExpense) * 100) / 100;
     const totalAvailable = Math.round((availableCash + availableOnline) * 100) / 100;
 
     return NextResponse.json({
@@ -141,6 +178,10 @@ export async function GET(req: NextRequest) {
         salary_online: salaryOnline,
         kharcha_cash: kharchaCash,
         kharcha_online: kharchaOnline,
+        resin_cash_received: resinCashReceived,
+        resin_online_received: resinOnlineReceived,
+        resin_cash_expense: resinCashExpense,
+        resin_online_expense: resinOnlineExpense,
         available_cash: availableCash,
         available_online: availableOnline,
         total_available: totalAvailable,
@@ -248,10 +289,51 @@ export async function POST(req: NextRequest) {
       console.warn('salary_payments query error:', e);
     }
 
-    // available = initial + (received + class_received + salary_received) - sent - kharcha
-    // => initial = available - (received + class_received + salary_received) + sent + kharcha
-    const newInitialCash = desiredCash !== null ? desiredCash - (cashReceived + classCash + salaryCash) + cashSent + kharchaCash : null;
-    const newInitialOnline = desiredOnline !== null ? desiredOnline - (onlineReceived + classOnline + salaryOnline) + onlineSent + kharchaOnline : null;
+    // Cumulative Resin Studio orders (received) and expenses (deducted) for Devangi
+    let resinCashReceived = 0;
+    let resinOnlineReceived = 0;
+    let resinCashExpense = 0;
+    let resinOnlineExpense = 0;
+
+    if (targetUser === 'devangi') {
+      try {
+        const resinOrderRes = await query<{
+          resin_cash: string | number;
+          resin_online: string | number;
+        }>(
+          `SELECT
+            COALESCE(SUM(CASE WHEN payment_mode = 'cod' THEN price ELSE 0 END), 0) AS resin_cash,
+            COALESCE(SUM(CASE WHEN payment_mode = 'upi' THEN price ELSE 0 END), 0) AS resin_online
+           FROM public.resin_orders
+           WHERE status = 'paid'`
+        );
+        resinCashReceived = Number(resinOrderRes.rows[0]?.resin_cash || 0);
+        resinOnlineReceived = Number(resinOrderRes.rows[0]?.resin_online || 0);
+
+        const resinExpRes = await query<{
+          resin_exp_cash: string | number;
+          resin_exp_online: string | number;
+        }>(
+          `SELECT
+            COALESCE(SUM(CASE WHEN payment_mode = 'cod' THEN amount ELSE 0 END), 0) AS resin_exp_cash,
+            COALESCE(SUM(CASE WHEN payment_mode = 'upi' THEN amount ELSE 0 END), 0) AS resin_exp_online
+           FROM public.resin_expenses`
+        );
+        resinCashExpense = Number(resinExpRes.rows[0]?.resin_exp_cash || 0);
+        resinOnlineExpense = Number(resinExpRes.rows[0]?.resin_exp_online || 0);
+      } catch (e) {
+        console.warn('resin query in balance error:', e);
+      }
+    }
+
+    // available = initial + (received + class_received + salary_received + resin_received) - sent - kharcha - resin_expenses
+    // => initial = available - (received + class_received + salary_received + resin_received) + sent + kharcha + resin_expenses
+    const newInitialCash = desiredCash !== null 
+      ? desiredCash - (cashReceived + classCash + salaryCash + resinCashReceived) + cashSent + kharchaCash + resinCashExpense 
+      : null;
+    const newInitialOnline = desiredOnline !== null 
+      ? desiredOnline - (onlineReceived + classOnline + salaryOnline + resinOnlineReceived) + onlineSent + kharchaOnline + resinOnlineExpense 
+      : null;
 
     // Check existing
     const existing = await query(
@@ -272,8 +354,8 @@ export async function POST(req: NextRequest) {
       [targetUser, finalInitialCash, finalInitialOnline]
     );
 
-    const updatedCash = Math.round((finalInitialCash + cashReceived + classCash + salaryCash - cashSent - kharchaCash) * 100) / 100;
-    const updatedOnline = Math.round((finalInitialOnline + onlineReceived + classOnline + salaryOnline - onlineSent - kharchaOnline) * 100) / 100;
+    const updatedCash = Math.round((finalInitialCash + cashReceived + classCash + salaryCash + resinCashReceived - cashSent - kharchaCash - resinCashExpense) * 100) / 100;
+    const updatedOnline = Math.round((finalInitialOnline + onlineReceived + classOnline + salaryOnline + resinOnlineReceived - onlineSent - kharchaOnline - resinOnlineExpense) * 100) / 100;
 
     return NextResponse.json({
       success: true,
@@ -294,6 +376,10 @@ export async function POST(req: NextRequest) {
         salary_online: salaryOnline,
         kharcha_cash: kharchaCash,
         kharcha_online: kharchaOnline,
+        resin_cash_received: resinCashReceived,
+        resin_online_received: resinOnlineReceived,
+        resin_cash_expense: resinCashExpense,
+        resin_online_expense: resinOnlineExpense,
       },
     });
   } catch (error: any) {

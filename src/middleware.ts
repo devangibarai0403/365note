@@ -5,10 +5,11 @@ import { decodeSession } from './lib/session';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow static files, api routes, favicon, and login page
+  // Allow static files, api routes, favicon, login page, and public devangi resin studio catalogue
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/devangiresinstudio') ||
     pathname.startsWith('/favicon.ico') ||
     pathname === '/login'
   ) {
@@ -49,12 +50,13 @@ export function middleware(request: NextRequest) {
 
   // 2. Shrikesh Route Restrictions
   if (role === 'shrikesh') {
-    // Shrikesh must not have Classes, School, Excel Import, or Admin Calendar access
+    // Shrikesh must not have Classes, School, Excel Import, Admin Calendar, or Resin Accounts access
     if (
       pathname.startsWith('/classes') ||
       pathname.startsWith('/school') ||
       pathname.startsWith('/excel-import') ||
-      pathname.startsWith('/calendar')
+      pathname.startsWith('/calendar') ||
+      pathname.startsWith('/resin-accounts')
     ) {
       const url = request.nextUrl.clone();
       url.pathname = '/';

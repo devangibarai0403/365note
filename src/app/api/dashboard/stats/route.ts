@@ -286,6 +286,97 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    // 6. Resin Studio Budgeting Stats (for Devangi & Admin)
+    let resinStats = {
+      totalRevenue: 0,
+      paidCod: 0,
+      paidUpi: 0,
+      totalExpenses: 0,
+      expenseCod: 0,
+      expenseUpi: 0,
+      netProfit: 0,
+      totalOrders: 0,
+      paidOrders: 0,
+      unpaidOrders: 0,
+      pendingAmount: 0,
+      monthRevenue: 0,
+      monthExpenses: 0,
+    };
+
+    if (user.role === 'admin' || user.role === 'devangi') {
+      try {
+        const orderSummaryRes = await query<{
+          total_revenue: string;
+          paid_cod: string;
+          paid_upi: string;
+          total_orders: string;
+          paid_orders: string;
+          unpaid_orders: string;
+          pending_amount: string;
+        }>(
+          `SELECT
+            COALESCE(SUM(CASE WHEN status = 'paid' THEN price ELSE 0 END), 0) as total_revenue,
+            COALESCE(SUM(CASE WHEN status = 'paid' AND payment_mode = 'cod' THEN price ELSE 0 END), 0) as paid_cod,
+            COALESCE(SUM(CASE WHEN status = 'paid' AND payment_mode = 'upi' THEN price ELSE 0 END), 0) as paid_upi,
+            COUNT(*) as total_orders,
+            COUNT(*) FILTER (WHERE status = 'paid') as paid_orders,
+            COUNT(*) FILTER (WHERE status = 'unpaid') as unpaid_orders,
+            COALESCE(SUM(CASE WHEN status = 'unpaid' THEN price ELSE 0 END), 0) as pending_amount
+           FROM public.resin_orders`
+        );
+
+        const expSummaryRes = await query<{
+          total_expenses: string;
+          expense_cod: string;
+          expense_upi: string;
+        }>(
+          `SELECT
+            COALESCE(SUM(amount), 0) as total_expenses,
+            COALESCE(SUM(CASE WHEN payment_mode = 'cod' THEN amount ELSE 0 END), 0) as expense_cod,
+            COALESCE(SUM(CASE WHEN payment_mode = 'upi' THEN amount ELSE 0 END), 0) as expense_upi
+           FROM public.resin_expenses`
+        );
+
+        const monthOrderRes = await query<{ month_revenue: string }>(
+          `SELECT COALESCE(SUM(price), 0) as month_revenue
+           FROM public.resin_orders
+           WHERE status = 'paid' AND order_date >= $1 AND order_date <= $2`,
+          [monthStart, monthEnd]
+        );
+
+        const monthExpRes = await query<{ month_expenses: string }>(
+          `SELECT COALESCE(SUM(amount), 0) as month_expenses
+           FROM public.resin_expenses
+           WHERE expense_date >= $1 AND expense_date <= $2`,
+          [monthStart, monthEnd]
+        );
+
+        const ord = orderSummaryRes.rows[0];
+        const exp = expSummaryRes.rows[0];
+
+        const totalRev = parseFloat(ord?.total_revenue || '0');
+        const totalExp = parseFloat(exp?.total_expenses || '0');
+
+        resinStats = {
+          totalRevenue: totalRev,
+          paidCod: parseFloat(ord?.paid_cod || '0'),
+          paidUpi: parseFloat(ord?.paid_upi || '0'),
+          totalExpenses: totalExp,
+          expenseCod: parseFloat(exp?.expense_cod || '0'),
+          expenseUpi: parseFloat(exp?.expense_upi || '0'),
+          netProfit: totalRev - totalExp,
+          totalOrders: parseInt(ord?.total_orders || '0'),
+          paidOrders: parseInt(ord?.paid_orders || '0'),
+          unpaidOrders: parseInt(ord?.unpaid_orders || '0'),
+          pendingAmount: parseFloat(ord?.pending_amount || '0'),
+          monthRevenue: parseFloat(monthOrderRes.rows[0]?.month_revenue || '0'),
+          monthExpenses: parseFloat(monthExpRes.rows[0]?.month_expenses || '0'),
+        };
+      } catch (err) {
+        console.warn('Dashboard resin stats query error:', err);
+      }
+    }
+
     return NextResponse.json({
       role: user.role,
       username: user.username,
@@ -296,6 +387,7 @@ export async function GET(req: NextRequest) {
       office: officeStats,
       kharcha: kharchaStats,
       familyMoney: familyMoneyStats,
+      resin: resinStats,
     });
   } catch (error: any) {
     console.error('Fetch dashboard stats error:', error);

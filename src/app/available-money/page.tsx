@@ -26,6 +26,7 @@ import {
   GraduationCap,
   School,
   Building2,
+  Palette,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -43,6 +44,10 @@ interface UserBalance {
   salary_online?: number;
   kharcha_cash: number;
   kharcha_online: number;
+  resin_cash_received?: number;
+  resin_online_received?: number;
+  resin_cash_expense?: number;
+  resin_online_expense?: number;
   available_cash: number;
   available_online: number;
   total_available: number;
@@ -72,6 +77,8 @@ export default function AvailableMoneyPage() {
   const [recentFamily, setRecentFamily] = useState<any[]>([]);
   const [recentLic, setRecentLic] = useState<any[]>([]);
   const [recentSalary, setRecentSalary] = useState<any[]>([]);
+  const [recentResinOrders, setRecentResinOrders] = useState<any[]>([]);
+  const [recentResinExpenses, setRecentResinExpenses] = useState<any[]>([]);
   const [salarySummary, setSalarySummary] = useState<any | null>(null);
   const [logsLoading, setLogsLoading] = useState(true);
 
@@ -132,7 +139,25 @@ export default function AvailableMoneyPage() {
           setRecentSalary([]);
         });
 
-      await Promise.all([kharchaPromise, familyPromise, salaryPromise]);
+      // 4. Fetch Resin Orders & Expenses if Devangi
+      let resinOrdersPromise = Promise.resolve();
+      let resinExpensesPromise = Promise.resolve();
+      if (effectiveUser === 'devangi') {
+        resinOrdersPromise = fetch('/api/resin/orders?status=paid')
+          .then(r => r.ok ? r.json() : { orders: [] })
+          .then(d => setRecentResinOrders((d.orders || []).slice(0, 5)))
+          .catch(() => setRecentResinOrders([]));
+
+        resinExpensesPromise = fetch('/api/resin/expenses')
+          .then(r => r.ok ? r.json() : { expenses: [] })
+          .then(d => setRecentResinExpenses((d.expenses || []).slice(0, 5)))
+          .catch(() => setRecentResinExpenses([]));
+      } else {
+        setRecentResinOrders([]);
+        setRecentResinExpenses([]);
+      }
+
+      await Promise.all([kharchaPromise, familyPromise, salaryPromise, resinOrdersPromise, resinExpensesPromise]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -315,6 +340,14 @@ export default function AvailableMoneyPage() {
                   </span>
                 </>
               )}
+              {Number(balance?.resin_cash_received || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-pink-300">
+                    +₹{Number(balance?.resin_cash_received || 0).toLocaleString('en-IN')} resin
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="flex items-center gap-1 text-rose-400">
                 -₹{Number(balance?.cash_sent || 0).toLocaleString('en-IN')} sent
@@ -324,6 +357,14 @@ export default function AvailableMoneyPage() {
                   <span>•</span>
                   <span className="flex items-center gap-1 text-amber-300">
                     -₹{Number(balance?.kharcha_cash || 0).toLocaleString('en-IN')} spent
+                  </span>
+                </>
+              )}
+              {Number(balance?.resin_cash_expense || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-rose-300">
+                    -₹{Number(balance?.resin_cash_expense || 0).toLocaleString('en-IN')} resin exp
                   </span>
                 </>
               )}
@@ -368,6 +409,14 @@ export default function AvailableMoneyPage() {
                   </span>
                 </>
               )}
+              {Number(balance?.resin_online_received || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-pink-300">
+                    +₹{Number(balance?.resin_online_received || 0).toLocaleString('en-IN')} resin
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="flex items-center gap-1 text-rose-400">
                 -₹{Number(balance?.online_sent || 0).toLocaleString('en-IN')} sent
@@ -377,6 +426,14 @@ export default function AvailableMoneyPage() {
                   <span>•</span>
                   <span className="flex items-center gap-1 text-sky-300">
                     -₹{Number(balance?.kharcha_online || 0).toLocaleString('en-IN')} spent
+                  </span>
+                </>
+              )}
+              {Number(balance?.resin_online_expense || 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-rose-300">
+                    -₹{Number(balance?.resin_online_expense || 0).toLocaleString('en-IN')} resin exp
                   </span>
                 </>
               )}
@@ -743,6 +800,113 @@ export default function AvailableMoneyPage() {
               </Link>
             </div>
           </div>
+
+          {/* Card 5: Devangi Resin Studio Channel (Devangi only) */}
+          {effectiveUser === 'devangi' && (
+            <div className="bg-white rounded-3xl border border-pink-200/90 p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-pink-100 mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-white border border-pink-200 p-0.5 flex items-center justify-center font-bold shadow-xs shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/drs_logo/resin_logo.png"
+                        alt="Devangi Resin Studio"
+                        className="w-full h-full object-contain filter drop-shadow-xs"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm">Resin Studio</h3>
+                      <p className="text-[11px] text-pink-600 font-medium">Orders (In) &amp; Expenses (Out)</p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/resin-accounts"
+                    className="p-1.5 rounded-xl text-pink-600 hover:bg-pink-50 transition-colors"
+                    title="Open Resin Accounts"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-2.5">
+                    <span className="text-[10px] font-bold uppercase text-emerald-700 block">Orders Paid (In)</span>
+                    <span className="text-base font-black text-emerald-700">
+                      +₹{(Number(balance?.resin_cash_received || 0) + Number(balance?.resin_online_received || 0)).toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Cash ₹{Number(balance?.resin_cash_received || 0).toLocaleString('en-IN')} • UPI ₹{Number(balance?.resin_online_received || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="bg-rose-50/70 border border-rose-100 rounded-xl p-2.5">
+                    <span className="text-[10px] font-bold uppercase text-rose-700 block">Resin Exp. (Out)</span>
+                    <span className="text-base font-black text-rose-700">
+                      -₹{(Number(balance?.resin_cash_expense || 0) + Number(balance?.resin_online_expense || 0)).toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Cash ₹{Number(balance?.resin_cash_expense || 0).toLocaleString('en-IN')} • UPI ₹{Number(balance?.resin_online_expense || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Recent Resin Activity */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 block">Recent Studio Transactions</span>
+                  {logsLoading ? (
+                    <div className="py-6 flex justify-center text-slate-400">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  ) : recentResinOrders.length === 0 && recentResinExpenses.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-3 text-center">No resin transactions logged yet</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {recentResinOrders.slice(0, 3).map(order => (
+                        <div
+                          key={`order-${order.id}`}
+                          className="flex items-center justify-between p-2 rounded-xl bg-pink-50/40 border border-pink-100 text-xs"
+                        >
+                          <div>
+                            <p className="font-bold text-slate-800">{order.product_name}</p>
+                            <span className="text-[10px] text-slate-400">{order.order_no} • {order.payment_mode?.toUpperCase()}</span>
+                          </div>
+                          <span className="font-black text-emerald-700">
+                            +₹{Number(order.price).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      ))}
+                      {recentResinExpenses.slice(0, 2).map(exp => (
+                        <div
+                          key={`exp-${exp.id}`}
+                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                        >
+                          <div>
+                            <p className="font-bold text-slate-800">{exp.spent_on}</p>
+                            <span className="text-[10px] text-slate-400">{exp.expense_date} • {exp.payment_mode?.toUpperCase()}</span>
+                          </div>
+                          <span className="font-black text-rose-700">
+                            -₹{Number(exp.amount).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <Link
+                  href="/resin-accounts"
+                  className="w-full py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-pink-200"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span>Open Resin Accounts</span>
+                  <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
