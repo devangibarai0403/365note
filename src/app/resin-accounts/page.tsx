@@ -5,32 +5,20 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
   Palette,
-  Sparkles,
   Plus,
   Search,
-  Copy,
   Check,
   CreditCard,
   Banknote,
-  ExternalLink,
   Trash2,
   Edit3,
-  Image as ImageIcon,
-  Upload,
   X,
   Loader2,
   TrendingUp,
   TrendingDown,
   ShoppingBag,
   Coins,
-  ChevronRight,
-  Filter,
-  DollarSign,
-  AlertCircle,
-  Clock,
-  Eye,
 } from 'lucide-react';
-import Link from 'next/link';
 import { ResinOrder, ResinExpense, ResinPaymentMode, ResinOrderStatus } from '@/types';
 
 export default function ResinAccountsPage() {
@@ -45,7 +33,6 @@ export default function ResinAccountsPage() {
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [orderModeFilter, setOrderModeFilter] = useState<'all' | 'cod' | 'upi'>('all');
-  const [nextOrderNo, setNextOrderNo] = useState('');
 
   // Expenses State
   const [expenses, setExpenses] = useState<ResinExpense[]>([]);
@@ -70,24 +57,16 @@ export default function ResinAccountsPage() {
     count: 0,
   });
 
-  // Copied order number indicator
-  const [copiedOrderNo, setCopiedOrderNo] = useState<string | null>(null);
-
-  // Order Modal State
+  // Order Modal State (Only 5 fields: Customer Name, Price, Payment Mode, Order Status, Order Date)
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ResinOrder | null>(null);
   const [orderFormData, setOrderFormData] = useState({
-    order_no: '',
     customer_name: '',
-    product_name: '',
     price: '',
     payment_mode: 'upi' as ResinPaymentMode,
     status: 'paid' as ResinOrderStatus,
     order_date: new Date().toISOString().split('T')[0],
-    notes: '',
-    images: [] as string[],
   });
-  const [uploadingImages, setUploadingImages] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
 
   // Expense Modal State
@@ -102,11 +81,6 @@ export default function ResinAccountsPage() {
   });
   const [savingExpense, setSavingExpense] = useState(false);
 
-  // Lightbox Modal State
-  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
   // Fetch Orders
   const fetchOrders = useCallback(async () => {
     try {
@@ -115,7 +89,6 @@ export default function ResinAccountsPage() {
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders || []);
-        setNextOrderNo(data.next_order_no || 'DRSIN260001');
         if (data.stats) {
           setOrderStats(data.stats);
         }
@@ -153,129 +126,48 @@ export default function ResinAccountsPage() {
     fetchExpenses();
   }, [fetchOrders, fetchExpenses]);
 
-  // Handle Copy Order Number
-  const handleCopyOrderNo = (orderNo: string) => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(orderNo);
-      setCopiedOrderNo(orderNo);
-      toast(`Order No "${orderNo}" copied to clipboard!`, 'success');
-      setTimeout(() => setCopiedOrderNo(null), 2500);
-    }
-  };
-
   // Open Create Order Modal
-  const handleOpenCreateOrder = async () => {
-    try {
-      const res = await fetch('/api/resin/orders?action=next_order_no');
-      let nextNo = nextOrderNo || 'DRSIN260001';
-      if (res.ok) {
-        const d = await res.json();
-        if (d.next_order_no) nextNo = d.next_order_no;
-      }
-      setEditingOrder(null);
-      setOrderFormData({
-        order_no: nextNo,
-        customer_name: '',
-        product_name: '',
-        price: '',
-        payment_mode: 'upi',
-        status: 'paid',
-        order_date: new Date().toISOString().split('T')[0],
-        notes: '',
-        images: [],
-      });
-      setIsOrderModalOpen(true);
-    } catch {
-      setEditingOrder(null);
-      setOrderFormData({
-        order_no: nextOrderNo || 'DRSIN260001',
-        customer_name: '',
-        product_name: '',
-        price: '',
-        payment_mode: 'upi',
-        status: 'paid',
-        order_date: new Date().toISOString().split('T')[0],
-        notes: '',
-        images: [],
-      });
-      setIsOrderModalOpen(true);
-    }
+  const handleOpenCreateOrder = () => {
+    setEditingOrder(null);
+    setOrderFormData({
+      customer_name: '',
+      price: '',
+      payment_mode: 'upi',
+      status: 'paid',
+      order_date: new Date().toISOString().split('T')[0],
+    });
+    setIsOrderModalOpen(true);
   };
 
   // Open Edit Order Modal
   const handleOpenEditOrder = (order: ResinOrder) => {
     setEditingOrder(order);
     setOrderFormData({
-      order_no: order.order_no,
       customer_name: order.customer_name,
-      product_name: order.product_name,
       price: String(order.price),
       payment_mode: order.payment_mode,
       status: order.status,
       order_date: order.order_date ? order.order_date.split('T')[0] : new Date().toISOString().split('T')[0],
-      notes: order.notes || '',
-      images: order.images || [],
     });
     setIsOrderModalOpen(true);
-  };
-
-  // Handle Image Upload for Order
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    try {
-      setUploadingImages(true);
-      const fd = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        fd.append('files', files[i]);
-      }
-
-      const res = await fetch('/api/resin/upload', {
-        method: 'POST',
-        body: fd,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const newUrls = data.urls || [];
-        setOrderFormData(prev => ({
-          ...prev,
-          images: [...prev.images, ...newUrls],
-        }));
-        toast(`${newUrls.length} image(s) uploaded successfully!`, 'success');
-      } else {
-        const err = await res.json();
-        toast(err.error || 'Failed to upload images', 'error');
-      }
-    } catch (e: any) {
-      toast('Image upload failed: ' + e.message, 'error');
-    } finally {
-      setUploadingImages(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleRemoveImage = (indexToRemove: number) => {
-    setOrderFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, idx) => idx !== indexToRemove),
-    }));
   };
 
   // Save Order (Create or Update)
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderFormData.customer_name.trim() || !orderFormData.product_name.trim() || !orderFormData.price) {
-      toast('Please enter customer name, product name, and price', 'error');
+    if (!orderFormData.customer_name.trim() || !orderFormData.price) {
+      toast('Please enter customer name and price', 'error');
       return;
     }
 
     try {
       setSavingOrder(true);
       const payload = {
-        ...orderFormData,
+        customer_name: orderFormData.customer_name.trim(),
         price: Number(orderFormData.price),
+        payment_mode: orderFormData.payment_mode,
+        status: orderFormData.status,
+        order_date: orderFormData.order_date,
         ...(editingOrder ? { id: editingOrder.id } : {}),
       };
 
@@ -287,7 +179,7 @@ export default function ResinAccountsPage() {
 
       if (res.ok) {
         toast(
-          editingOrder ? 'Order updated successfully!' : `Order ${orderFormData.order_no} created successfully!`,
+          editingOrder ? 'Order updated successfully!' : 'Order created successfully!',
           'success'
         );
         setIsOrderModalOpen(false);
@@ -318,7 +210,7 @@ export default function ResinAccountsPage() {
 
       if (res.ok) {
         toast(
-          `Order ${order.order_no} marked as ${newStatus.toUpperCase()}! Available money updated.`,
+          `Order for ${order.customer_name} marked as ${newStatus.toUpperCase()}! Available money updated.`,
           'success'
         );
         fetchOrders();
@@ -333,7 +225,7 @@ export default function ResinAccountsPage() {
 
   // Delete Order
   const handleDeleteOrder = async (order: ResinOrder) => {
-    if (!confirm(`Are you sure you want to delete order ${order.order_no} (${order.product_name})?`)) {
+    if (!confirm(`Are you sure you want to delete order for ${order.customer_name}?`)) {
       return;
     }
 
@@ -342,7 +234,7 @@ export default function ResinAccountsPage() {
         method: 'DELETE',
       });
       if (res.ok) {
-        toast(`Order ${order.order_no} deleted`, 'success');
+        toast('Order deleted', 'success');
         fetchOrders();
       } else {
         const err = await res.json();
@@ -441,22 +333,10 @@ export default function ResinAccountsPage() {
     }
   };
 
-  // Open Lightbox
-  const handleOpenLightbox = (images: string[], index = 0) => {
-    setLightboxImages(images);
-    setLightboxIndex(index);
-    setIsLightboxOpen(true);
-  };
-
   // Filtered Orders
   const filteredOrders = useMemo(() => {
     return orders.filter(item => {
-      const matchSearch =
-        item.order_no.toLowerCase().includes(orderSearch.toLowerCase()) ||
-        item.customer_name.toLowerCase().includes(orderSearch.toLowerCase()) ||
-        item.product_name.toLowerCase().includes(orderSearch.toLowerCase()) ||
-        (item.notes && item.notes.toLowerCase().includes(orderSearch.toLowerCase()));
-
+      const matchSearch = item.customer_name.toLowerCase().includes(orderSearch.toLowerCase());
       const matchStatus = orderStatusFilter === 'all' || item.status === orderStatusFilter;
       const matchMode = orderModeFilter === 'all' || item.payment_mode === orderModeFilter;
 
@@ -502,23 +382,12 @@ export default function ResinAccountsPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Sequential order generation, multiple photo uploads, expenses &amp; live integration with Available Money
+              Orders revenue, material expenses &amp; live integration with Available Money
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/devangiresinstudio/orderscatalogue"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95"
-            title="Open public catalogue"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-pink-500" />
-            <span>Public Catalogue ↗</span>
-          </Link>
-
           <button
             onClick={handleOpenCreateExpense}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all active:scale-95"
@@ -610,43 +479,6 @@ export default function ResinAccountsPage() {
         </div>
       </div>
 
-      {/* Public Catalogue Link Banner */}
-      <div className="bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 rounded-3xl p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md shadow-pink-200/60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="font-black text-base text-white">Public Product Catalogue URL</h3>
-            <p className="text-xs text-white/90">
-              Shareable with any customer without authentication: <code className="bg-white/20 px-1.5 py-0.5 rounded font-mono">/devangiresinstudio/orderscatalogue</code>
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              const url = `${window.location.origin}/devangiresinstudio/orderscatalogue`;
-              navigator.clipboard.writeText(url);
-              toast('Public catalogue URL copied to clipboard!', 'success');
-            }}
-            className="px-3.5 py-2 rounded-xl bg-white text-slate-900 text-xs font-bold shadow-sm hover:bg-slate-100 transition-all flex items-center gap-1.5 active:scale-95"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            <span>Copy Link</span>
-          </button>
-          <Link
-            href="/devangiresinstudio/orderscatalogue"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3.5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/30 transition-all flex items-center gap-1.5"
-          >
-            <span>View Catalogue</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      </div>
-
       {/* Main Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-slate-200">
         <button
@@ -683,7 +515,7 @@ export default function ResinAccountsPage() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search orders, customers, products..."
+                placeholder="Search by customer name..."
                 value={orderSearch}
                 onChange={e => setOrderSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-pink-500"
@@ -748,7 +580,6 @@ export default function ResinAccountsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredOrders.map(order => {
-                const hasImages = order.images && order.images.length > 0;
                 const isPaid = order.status === 'paid';
 
                 return (
@@ -757,29 +588,19 @@ export default function ResinAccountsPage() {
                     className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
                   >
                     <div>
-                      {/* Top Row: Order No + Copy Button + Status Badge */}
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-black text-sm text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                            {order.order_no}
-                          </span>
-                          <button
-                            onClick={() => handleCopyOrderNo(order.order_no)}
-                            className="p-1 rounded-md text-slate-400 hover:text-pink-600 hover:bg-pink-50 transition-colors"
-                            title="Copy Order No"
-                          >
-                            {copiedOrderNo === order.order_no ? (
-                              <Check className="w-4 h-4 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
+                      {/* Top Row: Customer Name & Status Badge */}
+                      <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100 mb-3">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Customer</span>
+                          <h3 className="font-black text-slate-900 text-base leading-tight">
+                            {order.customer_name}
+                          </h3>
                         </div>
 
                         {/* Status Toggle Button */}
                         <button
                           onClick={() => handleToggleOrderStatus(order)}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 ${
                             isPaid
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                               : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
@@ -791,18 +612,8 @@ export default function ResinAccountsPage() {
                         </button>
                       </div>
 
-                      {/* Product Name & Customer */}
-                      <div className="mb-3">
-                        <h3 className="font-black text-slate-900 text-base leading-tight">
-                          {order.product_name}
-                        </h3>
-                        <p className="text-xs font-semibold text-pink-600 mt-0.5">
-                          Customer: {order.customer_name}
-                        </p>
-                      </div>
-
                       {/* Price & Payment Mode */}
-                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 mb-3">
+                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 mb-2">
                         <div>
                           <span className="text-[10px] uppercase font-bold text-slate-400 block">Price</span>
                           <span className="text-base font-black text-slate-900">
@@ -826,47 +637,16 @@ export default function ResinAccountsPage() {
                           </span>
                         </div>
                       </div>
-
-                      {/* Photo Previews if available */}
-                      {hasImages && (
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold mb-1">
-                            <span>Uploaded Photos ({order.images.length})</span>
-                            <button
-                              onClick={() => handleOpenLightbox(order.images, 0)}
-                              className="text-pink-600 hover:underline flex items-center gap-0.5"
-                            >
-                              <Eye className="w-3 h-3" />
-                              <span>View All</span>
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                            {order.images.map((img, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleOpenLightbox(order.images, idx)}
-                                className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 hover:border-pink-500 shrink-0 relative group"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img} alt={`Order photo ${idx + 1}`} className="w-full h-full object-cover" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {order.notes && (
-                        <p className="text-xs text-slate-500 bg-white p-2 rounded-xl border border-slate-100 line-clamp-2 mb-2">
-                          {order.notes}
-                        </p>
-                      )}
                     </div>
 
                     {/* Bottom Details & Actions */}
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-slate-400 text-[11px]">
-                        {order.order_date ? new Date(order.order_date).toLocaleDateString('en-IN') : '—'}
-                      </span>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Order Date</span>
+                        <span className="text-slate-600 text-xs font-semibold">
+                          {order.order_date ? new Date(order.order_date).toLocaleDateString('en-IN') : '—'}
+                        </span>
+                      </div>
 
                       <div className="flex items-center gap-1">
                         <button
@@ -896,7 +676,7 @@ export default function ResinAccountsPage() {
       {/* TAB 2: RESIN EXPENSES */}
       {activeTab === 'expenses' && (
         <div className="space-y-4">
-          {/* Expense Filter Bar */}
+          {/* Filters Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="relative w-full sm:max-w-md">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -905,7 +685,7 @@ export default function ResinAccountsPage() {
                 placeholder="Search where spent, materials, notes..."
                 value={expenseSearch}
                 onChange={e => setExpenseSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-pink-500"
               />
               {expenseSearch && (
                 <button
@@ -921,24 +701,16 @@ export default function ResinAccountsPage() {
               <select
                 value={expenseModeFilter}
                 onChange={e => setExpenseModeFilter(e.target.value as any)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-pink-500"
               >
                 <option value="all">All Modes</option>
                 <option value="cod">COD (Cash)</option>
                 <option value="upi">UPI (Online)</option>
               </select>
-
-              <button
-                onClick={handleOpenCreateExpense}
-                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-200"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Expense</span>
-              </button>
             </div>
           </div>
 
-          {/* Expense Table / List */}
+          {/* Expenses List */}
           {expensesLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-rose-600" />
@@ -949,9 +721,9 @@ export default function ResinAccountsPage() {
               <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
                 <CreditCard className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-slate-800 text-sm">No Resin Expenses Recorded</h3>
+              <h3 className="font-bold text-slate-800 text-sm">No Resin Expenses</h3>
               <p className="text-xs text-slate-400 mt-1 mb-4">
-                Record your resin materials, silicon molds, pigments, or courier expenses.
+                Record epoxy resin bottles, pigment purchases, silicon moulds &amp; courier costs.
               </p>
               <button
                 onClick={handleOpenCreateExpense}
@@ -961,56 +733,58 @@ export default function ResinAccountsPage() {
               </button>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                  <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 uppercase font-bold text-[10px] tracking-wider">
                     <tr>
-                      <th className="px-5 py-3.5">Where Spent (Purpose)</th>
-                      <th className="px-5 py-3.5">Date</th>
+                      <th className="px-5 py-3.5">Spent On / Item</th>
+                      <th className="px-5 py-3.5">Amount</th>
                       <th className="px-5 py-3.5">Payment Mode</th>
-                      <th className="px-5 py-3.5">Amount (₹)</th>
+                      <th className="px-5 py-3.5">Expense Date</th>
                       <th className="px-5 py-3.5">Notes</th>
                       <th className="px-5 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredExpenses.map(item => (
-                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-5 py-4 font-bold text-slate-800">
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-3.5 font-bold text-slate-900">
                           {item.spent_on}
                         </td>
-                        <td className="px-5 py-4 text-slate-500">
-                          {item.expense_date ? new Date(item.expense_date).toLocaleDateString('en-IN') : '—'}
+                        <td className="px-5 py-3.5 font-black text-rose-600">
+                          ₹{Number(item.amount).toLocaleString('en-IN')}
                         </td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                            item.payment_mode === 'cod'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-sky-100 text-sky-800'
-                          }`}>
+                        <td className="px-5 py-3.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                              item.payment_mode === 'cod'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-sky-50 text-sky-700 border border-sky-200'
+                            }`}
+                          >
                             {item.payment_mode === 'cod' ? 'COD (Cash)' : 'UPI (Online)'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 font-black text-rose-600 text-sm">
-                          -₹{Number(item.amount).toLocaleString('en-IN')}
+                        <td className="px-5 py-3.5 text-slate-500">
+                          {item.expense_date ? new Date(item.expense_date).toLocaleDateString('en-IN') : '-'}
                         </td>
-                        <td className="px-5 py-4 text-slate-400 max-w-xs truncate">
-                          {item.notes || '—'}
+                        <td className="px-5 py-3.5 text-slate-400 max-w-xs truncate">
+                          {item.notes || '-'}
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => handleOpenEditExpense(item)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100"
-                              title="Edit"
+                              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                              title="Edit Expense"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteExpense(item)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                              title="Delete"
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Delete Expense"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1026,10 +800,10 @@ export default function ResinAccountsPage() {
         </div>
       )}
 
-      {/* CREATE / EDIT ORDER MODAL */}
+      {/* CREATE / EDIT ORDER MODAL (Only 5 fields: Customer Name, Price, Payment Mode, Order Status, Order Date) */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 my-8 animate-in zoom-in-95">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 my-8 animate-in zoom-in-95">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-pink-50 to-white">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-pink-600 text-white flex items-center justify-center shadow-md shadow-pink-200">
@@ -1040,7 +814,7 @@ export default function ResinAccountsPage() {
                     {editingOrder ? 'Edit Resin Order' : 'Create New Resin Order'}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Order No: <span className="font-mono font-bold text-pink-600">{orderFormData.order_no}</span>
+                    {editingOrder ? 'Update order details' : 'Record a new customer order'}
                   </p>
                 </div>
               </div>
@@ -1052,36 +826,8 @@ export default function ResinAccountsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveOrder} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* Order Number (Auto-generated with sequence) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Order Number (Sequential) *
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={orderFormData.order_no}
-                    onChange={e => setOrderFormData(prev => ({ ...prev, order_no: e.target.value.toUpperCase() }))}
-                    required
-                    className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500 uppercase"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleCopyOrderNo(orderFormData.order_no)}
-                    className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0"
-                    title="Copy Order No"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <span className="text-[11px] text-slate-400 mt-1 block">
-                  Format: DRSIN26XXXX sequential numbering
-                </span>
-              </div>
-
-              {/* Customer Name */}
+            <form onSubmit={handleSaveOrder} className="p-6 space-y-4">
+              {/* 1. Customer Name */}
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
                   Customer Name *
@@ -1096,167 +842,74 @@ export default function ResinAccountsPage() {
                 />
               </div>
 
-              {/* Product Name */}
+              {/* 2. Price (₹) */}
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Product Name *
+                  Price (₹) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">₹</span>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 2500"
+                    value={orderFormData.price}
+                    onChange={e => setOrderFormData(prev => ({ ...prev, price: e.target.value }))}
+                    required
+                    className="w-full pl-7 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+              </div>
+
+              {/* 3. Payment Mode */}
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Payment Mode *
+                </label>
+                <select
+                  value={orderFormData.payment_mode}
+                  onChange={e => setOrderFormData(prev => ({ ...prev, payment_mode: e.target.value as any }))}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  <option value="upi">UPI (Online)</option>
+                  <option value="cod">COD (Cash)</option>
+                </select>
+              </div>
+
+              {/* 4. Order Status */}
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Order Status *
+                </label>
+                <select
+                  value={orderFormData.status}
+                  onChange={e => setOrderFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                  className={`w-full px-3 py-2.5 border rounded-xl text-sm font-black focus:outline-none focus:ring-2 focus:ring-pink-500 ${
+                    orderFormData.status === 'paid'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-amber-50 border-amber-200 text-amber-800'
+                  }`}
+                >
+                  <option value="paid">Paid (Reflects in Available Money)</option>
+                  <option value="unpaid">Unpaid (Pending)</option>
+                </select>
+              </div>
+
+              {/* 5. Order Date */}
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
+                  Order Date *
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. Custom Ocean Wave Resin Clock 12-inch"
-                  value={orderFormData.product_name}
-                  onChange={e => setOrderFormData(prev => ({ ...prev, product_name: e.target.value }))}
+                  type="date"
+                  value={orderFormData.order_date}
+                  onChange={e => setOrderFormData(prev => ({ ...prev, order_date: e.target.value }))}
                   required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
                 />
               </div>
 
-              {/* Price & Payment Mode */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                    Price (₹) *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">₹</span>
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="e.g. 2500"
-                      value={orderFormData.price}
-                      onChange={e => setOrderFormData(prev => ({ ...prev, price: e.target.value }))}
-                      required
-                      className="w-full pl-7 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                    Payment Mode *
-                  </label>
-                  <select
-                    value={orderFormData.payment_mode}
-                    onChange={e => setOrderFormData(prev => ({ ...prev, payment_mode: e.target.value as any }))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  >
-                    <option value="upi">UPI (Online)</option>
-                    <option value="cod">COD (Cash)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Order Status & Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                    Order Status *
-                  </label>
-                  <select
-                    value={orderFormData.status}
-                    onChange={e => setOrderFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                    className={`w-full px-3 py-2.5 border rounded-xl text-sm font-black focus:outline-none focus:ring-2 focus:ring-pink-500 ${
-                      orderFormData.status === 'paid'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : 'bg-amber-50 border-amber-200 text-amber-800'
-                    }`}
-                  >
-                    <option value="paid">Paid (Reflects in Available Money)</option>
-                    <option value="unpaid">Unpaid (Pending)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                    Order Date
-                  </label>
-                  <input
-                    type="date"
-                    value={orderFormData.order_date}
-                    onChange={e => setOrderFormData(prev => ({ ...prev, order_date: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Customization Notes / Specs
-                </label>
-                <textarea
-                  placeholder="e.g. Preserved wedding garland flowers, Roman numerals with gold foil flakes"
-                  rows={2}
-                  value={orderFormData.notes}
-                  onChange={e => setOrderFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                />
-              </div>
-
-              {/* Multiple Images Upload */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase text-slate-500">
-                    Upload Photos (Multiple)
-                  </label>
-                  <span className="text-[11px] text-slate-400">
-                    {orderFormData.images.length} photo(s) attached
-                  </span>
-                </div>
-
-                {/* Upload Trigger Dropzone */}
-                <label className="relative border-2 border-dashed border-pink-200 hover:border-pink-500 bg-pink-50/30 hover:bg-pink-50/60 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImages}
-                    className="hidden"
-                  />
-                  {uploadingImages ? (
-                    <div className="flex items-center gap-2 text-pink-600 text-xs font-bold py-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Uploading to Vercel Blob...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center mb-1">
-                        <Upload className="w-5 h-5" />
-                      </div>
-                      <span className="text-xs font-bold text-slate-700">Click to upload photos</span>
-                      <span className="text-[10px] text-slate-400 mt-0.5">
-                        JPEG, PNG, WebP supported • Multiple images allowed
-                      </span>
-                    </>
-                  )}
-                </label>
-
-                {/* Uploaded Images Preview Strip */}
-                {orderFormData.images.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mt-3">
-                    {orderFormData.images.map((url, idx) => (
-                      <div
-                        key={idx}
-                        className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 group bg-slate-100"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(idx)}
-                          className="absolute top-1 right-1 p-1 rounded-full bg-black/70 hover:bg-rose-600 text-white transition-colors"
-                          title="Remove image"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Submit Button */}
+              {/* Submit Buttons */}
               <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -1267,7 +920,7 @@ export default function ResinAccountsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingOrder || uploadingImages}
+                  disabled={savingOrder}
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white text-xs font-bold shadow-md shadow-pink-200 disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {savingOrder ? (
@@ -1290,8 +943,8 @@ export default function ResinAccountsPage() {
 
       {/* CREATE / EDIT EXPENSE MODAL */}
       {isExpenseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 my-8 animate-in zoom-in-95">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-rose-50 to-white">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-md shadow-rose-200">
@@ -1299,9 +952,11 @@ export default function ResinAccountsPage() {
                 </div>
                 <div>
                   <h3 className="font-black text-slate-800 text-base">
-                    {editingExpense ? 'Edit Resin Expense' : 'Add Resin Expense'}
+                    {editingExpense ? 'Edit Resin Expense' : 'Add Resin Material Expense'}
                   </h3>
-                  <p className="text-xs text-slate-400">Deducts live from Available Money</p>
+                  <p className="text-xs text-slate-400">
+                    Immediately deducted from your Available Money
+                  </p>
                 </div>
               </div>
               <button
@@ -1315,11 +970,11 @@ export default function ResinAccountsPage() {
             <form onSubmit={handleSaveExpense} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Where Spent (Purpose / Material) *
+                  Spent On / Item *
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Epoxy Resin & Hardener 3:1 ratio"
+                  placeholder="e.g. 3:1 Epoxy Resin 1kg + Hardener"
                   value={expenseFormData.spent_on}
                   onChange={e => setExpenseFormData(prev => ({ ...prev, spent_on: e.target.value }))}
                   required
@@ -1337,7 +992,7 @@ export default function ResinAccountsPage() {
                     <input
                       type="number"
                       step="any"
-                      placeholder="e.g. 1200"
+                      placeholder="e.g. 1450"
                       value={expenseFormData.amount}
                       onChange={e => setExpenseFormData(prev => ({ ...prev, amount: e.target.value }))}
                       required
@@ -1356,7 +1011,7 @@ export default function ResinAccountsPage() {
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
                   >
                     <option value="upi">UPI (Online)</option>
-                    <option value="cod">COD (Cash)</option>
+                    <option value="cod">Cash (Hand Cash)</option>
                   </select>
                 </div>
               </div>
@@ -1379,7 +1034,7 @@ export default function ResinAccountsPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Purchased from Local Resin Art Supplies Store"
+                  placeholder="e.g. Amazon seller ResiArt Store"
                   value={expenseFormData.notes}
                   onChange={e => setExpenseFormData(prev => ({ ...prev, notes: e.target.value }))}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
@@ -1397,7 +1052,7 @@ export default function ResinAccountsPage() {
                 <button
                   type="submit"
                   disabled={savingExpense}
-                  className="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-200 disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold shadow-md shadow-rose-200 disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {savingExpense ? (
                     <>
@@ -1414,51 +1069,6 @@ export default function ResinAccountsPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
-
-      {/* LIGHTBOX MODAL */}
-      {isLightboxOpen && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in">
-          <div className="p-4 flex items-center justify-between text-white border-b border-white/10">
-            <span className="text-sm font-bold">
-              Photo {lightboxIndex + 1} of {lightboxImages.length}
-            </span>
-            <button
-              onClick={() => setIsLightboxOpen(false)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          <div className="flex-1 flex items-center justify-center p-4">
-            {lightboxImages[lightboxIndex] && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={lightboxImages[lightboxIndex]}
-                alt="Order Preview"
-                className="max-h-[80vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
-              />
-            )}
-          </div>
-
-          {lightboxImages.length > 1 && (
-            <div className="p-4 border-t border-white/10 flex justify-center gap-2 overflow-x-auto bg-black/40">
-              {lightboxImages.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setLightboxIndex(idx)}
-                  className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${
-                    lightboxIndex === idx ? 'border-pink-500 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

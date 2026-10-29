@@ -868,8 +868,8 @@ export default function AvailableMoneyPage() {
                           className="flex items-center justify-between p-2 rounded-xl bg-pink-50/40 border border-pink-100 text-xs"
                         >
                           <div>
-                            <p className="font-bold text-slate-800">{order.product_name}</p>
-                            <span className="text-[10px] text-slate-400">{order.order_no} • {order.payment_mode?.toUpperCase()}</span>
+                            <p className="font-bold text-slate-800">{order.customer_name}</p>
+                            <span className="text-[10px] text-slate-400">{order.payment_mode?.toUpperCase()} {order.order_date ? `• ${new Date(order.order_date).toLocaleDateString('en-IN')}` : ''}</span>
                           </div>
                           <span className="font-black text-emerald-700">
                             +₹{Number(order.price).toLocaleString('en-IN')}

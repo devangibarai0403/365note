@@ -250,14 +250,10 @@ export type ResinOrderStatus = 'paid' | 'unpaid';
 
 export interface ResinOrder {
   id: string;
-  order_no: string;
   customer_name: string;
-  product_name: string;
   price: number;
   payment_mode: ResinPaymentMode;
   status: ResinOrderStatus;
-  images: string[];
-  notes?: string;
   order_date: string;
   created_by?: string;
   created_at?: string;

@@ -19,7 +19,6 @@ import {
   Loader2,
   FileSpreadsheet,
   Palette,
-  Sparkles,
   ShoppingBag,
   TrendingDown,
   Banknote,
@@ -380,15 +379,6 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Link
-                  href="/devangiresinstudio/orderscatalogue"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-pink-500" />
-                  <span>Public Catalogue ↗</span>
-                </Link>
                 <Link
                   href="/resin-accounts"
                   className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-pink-200 transition-all flex items-center gap-1.5"
@@ -802,15 +792,6 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Link
-                    href="/devangiresinstudio/orderscatalogue"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-pink-500" />
-                    <span>Public Catalogue ↗</span>
-                  </Link>
                   <Link
                     href="/resin-accounts"
                     className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-pink-200 transition-all flex items-center gap-1.5"

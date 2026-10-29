@@ -12,8 +12,8 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const { user, loading, refreshUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // If on login page or public Devangi Resin Studio catalogue, render without 365note shell
-  if (pathname === '/login' || pathname.startsWith('/devangiresinstudio')) {
+  // If on login page, render without 365note shell
+  if (pathname === '/login') {
     return <>{children}</>;
   }
 

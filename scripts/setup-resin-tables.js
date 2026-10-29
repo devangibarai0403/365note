@@ -13,14 +13,10 @@ async function setup() {
   await client.query(`
     CREATE TABLE IF NOT EXISTS public.resin_orders (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      order_no VARCHAR(50) UNIQUE NOT NULL,
       customer_name VARCHAR(255) NOT NULL,
-      product_name VARCHAR(255) NOT NULL,
       price NUMERIC(12, 2) NOT NULL DEFAULT 0,
       payment_mode VARCHAR(20) NOT NULL CHECK (payment_mode IN ('cod', 'upi')),
       status VARCHAR(20) NOT NULL DEFAULT 'unpaid' CHECK (status IN ('paid', 'unpaid')),
-      images TEXT[] DEFAULT '{}',
-      notes TEXT,
       order_date DATE DEFAULT CURRENT_DATE,
       created_by VARCHAR(50) DEFAULT 'devangi',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -29,7 +25,6 @@ async function setup() {
 
     CREATE INDEX IF NOT EXISTS idx_resin_orders_status ON public.resin_orders(status);
     CREATE INDEX IF NOT EXISTS idx_resin_orders_order_date ON public.resin_orders(order_date);
-    CREATE INDEX IF NOT EXISTS idx_resin_orders_order_no ON public.resin_orders(order_no);
   `);
 
   console.log('Creating resin_expenses table...');

@@ -2,33 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
-// Helper to calculate the next sequential order number
-export async function getNextOrderNumber(): Promise<string> {
-  const currentYear = new Date().getFullYear();
-  const yearSuffix = String(currentYear).slice(-2);
-  const prefix = `DRSIN${yearSuffix}`;
-
-  const res = await query<{ order_no: string }>(
-    `SELECT order_no FROM public.resin_orders 
-     WHERE order_no LIKE $1 
-     ORDER BY order_no DESC`,
-    [`${prefix}%`]
-  );
-
-  let maxSeq = 0;
-  for (const row of res.rows) {
-    const suffix = row.order_no.replace(prefix, '');
-    const num = parseInt(suffix, 10);
-    if (!isNaN(num) && num > maxSeq) {
-      maxSeq = num;
-    }
-  }
-
-  const nextSeq = maxSeq + 1;
-  const padded = String(nextSeq).padStart(4, '0');
-  return `${prefix}${padded}`;
-}
-
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -41,21 +14,9 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const action = searchParams.get('action');
-
-  // If requesting next sequential order number
-  if (action === 'next_order_no') {
-    try {
-      const nextNo = await getNextOrderNumber();
-      return NextResponse.json({ next_order_no: nextNo });
-    } catch (e: any) {
-      return NextResponse.json({ error: e.message }, { status: 500 });
-    }
-  }
-
   const status = searchParams.get('status'); // 'paid' | 'unpaid'
   const paymentMode = searchParams.get('payment_mode'); // 'cod' | 'upi'
-  const search = searchParams.get('search'); // customer or product or order_no
+  const search = searchParams.get('search'); // customer_name
   const month = searchParams.get('month'); // YYYY-MM
 
   try {
@@ -74,9 +35,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (search && search.trim()) {
-      sql += ` AND (customer_name ILIKE $${pIdx} OR product_name ILIKE $${pIdx} OR order_no ILIKE $${pIdx})`;
+      sql += ` AND customer_name ILIKE $${pIdx++}`;
       params.push(`%${search.trim()}%`);
-      pIdx++;
     }
 
     if (month) {
@@ -84,10 +44,9 @@ export async function GET(req: NextRequest) {
       params.push(month);
     }
 
-    sql += ` ORDER BY created_at DESC`;
+    sql += ` ORDER BY order_date DESC, created_at DESC`;
 
     const res = await query(sql, params);
-    const nextOrderNo = await getNextOrderNumber();
 
     // Summary stats
     const statsRes = await query<{
@@ -110,7 +69,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       orders: res.rows,
-      next_order_no: nextOrderNo,
       stats: {
         total_orders: Number(statsRes.rows[0]?.total_orders || 0),
         paid_orders: Number(statsRes.rows[0]?.paid_orders || 0),
@@ -140,59 +98,38 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       customer_name,
-      product_name,
       price,
       payment_mode,
       status,
-      images,
-      notes,
       order_date,
     } = body;
 
-    if (!customer_name || !product_name || price === undefined) {
+    if (!customer_name || !customer_name.trim() || price === undefined || price === null || price === '') {
       return NextResponse.json(
-        { error: 'Customer name, product name, and price are required' },
+        { error: 'Customer name and price are required' },
         { status: 400 }
       );
     }
 
-    const validPaymentMode = payment_mode === 'cod' ? 'cod' : 'upi';
-    const validStatus = status === 'paid' ? 'paid' : 'unpaid';
     const numericPrice = Number(price);
-
     if (isNaN(numericPrice) || numericPrice < 0) {
       return NextResponse.json({ error: 'Price must be a valid positive number' }, { status: 400 });
     }
 
-    // Auto-generate sequential order number
-    let orderNo = body.order_no;
-    if (!orderNo || typeof orderNo !== 'string' || !orderNo.trim()) {
-      orderNo = await getNextOrderNumber();
-    } else {
-      orderNo = orderNo.trim().toUpperCase();
-    }
-
-    // Format images array
-    const imageList: string[] = Array.isArray(images)
-      ? images.filter(img => typeof img === 'string' && img.trim().length > 0)
-      : [];
-
+    const validPaymentMode = payment_mode === 'cod' ? 'cod' : 'upi';
+    const validStatus = status === 'paid' ? 'paid' : 'unpaid';
     const orderDateVal = order_date || new Date().toISOString().split('T')[0];
 
     const insertRes = await query(
       `INSERT INTO public.resin_orders 
-        (order_no, customer_name, product_name, price, payment_mode, status, images, notes, order_date, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        (customer_name, price, payment_mode, status, order_date, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
        RETURNING *`,
       [
-        orderNo,
         customer_name.trim(),
-        product_name.trim(),
         numericPrice,
         validPaymentMode,
         validStatus,
-        imageList,
-        notes || null,
         orderDateVal,
         user.username || 'devangi',
       ]
@@ -201,16 +138,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       order: insertRes.rows[0],
-      message: `Order ${orderNo} created successfully`,
+      message: 'Order created successfully',
     });
   } catch (error: any) {
     console.error('Create resin order error:', error);
-    if (error.code === '23505') {
-      return NextResponse.json(
-        { error: 'An order with this order number already exists. Please use a unique order number.' },
-        { status: 409 }
-      );
-    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -227,7 +158,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { id, customer_name, product_name, price, payment_mode, status, images, notes, order_date } = body;
+    const { id, customer_name, price, payment_mode, status, order_date } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
@@ -240,11 +171,6 @@ export async function PUT(req: NextRequest) {
     if (customer_name !== undefined) {
       updates.push(`customer_name = $${pIdx++}`);
       params.push(customer_name.trim());
-    }
-
-    if (product_name !== undefined) {
-      updates.push(`product_name = $${pIdx++}`);
-      params.push(product_name.trim());
     }
 
     if (price !== undefined) {
@@ -260,16 +186,6 @@ export async function PUT(req: NextRequest) {
     if (status !== undefined) {
       updates.push(`status = $${pIdx++}`);
       params.push(status === 'paid' ? 'paid' : 'unpaid');
-    }
-
-    if (images !== undefined) {
-      updates.push(`images = $${pIdx++}`);
-      params.push(Array.isArray(images) ? images : []);
-    }
-
-    if (notes !== undefined) {
-      updates.push(`notes = $${pIdx++}`);
-      params.push(notes);
     }
 
     if (order_date !== undefined) {
@@ -323,7 +239,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Order ${res.rows[0].order_no} deleted`,
+      message: 'Order deleted successfully',
     });
   } catch (error: any) {
     console.error('Delete resin order error:', error);
